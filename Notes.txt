@@ -1,0 +1,16 @@
+
+//------------------------------------
+// Splash Screen
+//------------------------------------
+Project Settings>Platforms>Windows
+
+//------------------------------------
+// Console
+//------------------------------------
+// Observe that the Console key is set in "Project Settins">Engine>Input, not "Editor Preferences"
+
+//------------------------------------
+// Git
+//------------------------------------
+Git is easiest to just set trough the Unreal Editor, and put link the adress to an online Riposatory. 
+Use Initilize with Git and accept.
