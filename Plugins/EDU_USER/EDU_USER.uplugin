@@ -2,8 +2,8 @@
 	"FileVersion": 3,
 	"Version": 1,
 	"VersionName": "1.0",
-	"FriendlyName": "EDU_CORE",
-	"Description": "",
+	"FriendlyName": "EDU_USER",
+	"Description": "Manages user input and interfacing",
 	"Category": "Other",
 	"CreatedBy": "Draug",
 	"CreatedByURL": "",
@@ -16,14 +16,19 @@
 	"Installed": false,
 	"Modules": [
 		{
-			"Name": "EDU_CORE",
+			"Name": "EDU_USER",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}
-	],	"Plugins": [
-	{
-		"Name": "EnhancedInput",
-		"Enabled": true
-	}
-]
+	],
+	"Plugins": [
+		{
+			"Name": "CommonUI",
+			"Enabled": true
+		},
+		{
+			"Name": "EnhancedInput",
+			"Enabled": true
+		}
+	]
 }

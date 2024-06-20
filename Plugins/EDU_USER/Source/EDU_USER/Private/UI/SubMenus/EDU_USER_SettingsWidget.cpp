@@ -1,21 +1,18 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-
-#include "Framework/UI/EDU_CORE_SettingsWidget.h"
-
-#include "CommonTextBlock.h"
+#include "UI/Components/EDU_USER_SelectionWidget.h"
+#include "UI/SubMenus/EDU_USER_SettingsWidget.h"
 #include "Components/Button.h"
-#include "Framework/UI/EDU_CORE_SelectionBase.h"
-#include "Framework/Data/FlowLog.h"
 #include "Components/CheckBox.h"
 #include "Components/ComboBoxString.h"
+#include "Framework/Data/FlowLog.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 //------------------------------------------------------------------------------
 // Initialization & Object lifetime management
 //------------------------------------------------------------------------------
-void UEDU_CORE_SettingsWidget::NativeConstruct()
+void UEDU_USER_SettingsWidget::NativeConstruct()
 { FLOW_LOG
 	//Super::NativeConstruct();
 
@@ -34,13 +31,13 @@ void UEDU_CORE_SettingsWidget::NativeConstruct()
 	
 }
 
-UWidget* UEDU_CORE_SettingsWidget::NativeGetDesiredFocusTarget() const
+UWidget* UEDU_USER_SettingsWidget::NativeGetDesiredFocusTarget() const
 { FLOW_LOG
 	// Will focus on this when the widget is activated <!> 
 	return ResolutionComboBox;
 }
 
-void UEDU_CORE_SettingsWidget::InitializeResolutionComboBox()
+void UEDU_USER_SettingsWidget::InitializeResolutionComboBox()
 { FLOW_LOG
 	if (!ResolutionComboBox) { FLOW_LOG_ERROR("ResolutionComboBox is nullptr.") return; }
 	
@@ -88,7 +85,7 @@ void UEDU_CORE_SettingsWidget::InitializeResolutionComboBox()
 	ResolutionComboBox->OnSelectionChanged.AddDynamic(this, &ThisClass::OnResolutionChanged);
 } 
 
-void UEDU_CORE_SettingsWidget::InitializeVSync()
+void UEDU_USER_SettingsWidget::InitializeVSync()
 { FLOW_LOG
 	if(!VSyncCheckBox) { FLOW_LOG_ERROR("VSyncCheckBox is nullptr.")return; }
 	
@@ -138,7 +135,7 @@ namespace
 	// Define a structure to hold UI widget and associated get/set functions.
 	struct FSelectionElement
 	{
-		UEDU_CORE_SelectionBase* SelectionWidget;
+		UEDU_USER_SelectionBase* SelectionWidget;
 
 		// Member function pointer to a getter function in UGameUserSettings.
 		GetQuality GetQuality;
@@ -148,7 +145,7 @@ namespace
 	};
 }
 
-void UEDU_CORE_SettingsWidget::InitializeFramerate() const
+void UEDU_USER_SettingsWidget::InitializeFramerate() const
 { FLOW_LOG
 	if (!FramerateSelectionWidget) { FLOW_LOG_ERROR("FramerateSelectionWidget is nullptr.") return;	}
 	FramerateSelectionWidget->ClearCurrentSelection();
@@ -183,7 +180,7 @@ void UEDU_CORE_SettingsWidget::InitializeFramerate() const
 /*-------------------InitializeShadingQualityOptions() ------------------------
   Deprecated, we use the Quality Settings loop instead
 --------------------------------------------------------------------------------
-void UEDU_CORE_SettingsWidget::InitializeShadingQualityOptions() 
+void UEDU_USER_SettingsWidget::InitializeShadingQualityOptions() 
 { FLOW_LOG
 	if(!ShadingQualitySelectionWidget) { FLOW_LOG_ERROR("ShadingQualitySelectionWidget is null") return; }
 	ShadingQualitySelectionWidget->ClearCurrentSelection();
@@ -213,7 +210,7 @@ void UEDU_CORE_SettingsWidget::InitializeShadingQualityOptions()
 }
 ------------------------------------------------------------------------------*/
 
-void UEDU_CORE_SettingsWidget::InitializeQualitySettings()
+void UEDU_USER_SettingsWidget::InitializeQualitySettings()
 { FLOW_LOG
 	/* ------------------- InitializeQualitySettings -----------------------
 	  This function manages the Quality Settings in UGameUserSettings,
@@ -281,7 +278,7 @@ void UEDU_CORE_SettingsWidget::InitializeQualitySettings()
 //------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------
-void UEDU_CORE_SettingsWidget::OnResolutionChanged(FString InSelectedItem, ESelectInfo::Type InSelectionType)
+void UEDU_USER_SettingsWidget::OnResolutionChanged(FString InSelectedItem, ESelectInfo::Type InSelectionType)
 { FLOW_LOG
 	// Get the Array Index through the Combo Index
 	const FIntPoint SelectedResolution = ResolutionsArray[ResolutionComboBox->GetSelectedIndex()];
@@ -292,13 +289,13 @@ void UEDU_CORE_SettingsWidget::OnResolutionChanged(FString InSelectedItem, ESele
 	
 }
 
-void UEDU_CORE_SettingsWidget::OnVSyncChanged(bool IsChecked)
+void UEDU_USER_SettingsWidget::OnVSyncChanged(bool IsChecked)
 { FLOW_LOG
 	GameUserSettings->SetVSyncEnabled(IsChecked);
 	GameUserSettings->ApplySettings(false);
 }
 
-void UEDU_CORE_SettingsWidget::AutoDetectQuality()
+void UEDU_USER_SettingsWidget::AutoDetectQuality()
 {
 	GameUserSettings->RunHardwareBenchmark();
 	GameUserSettings->ApplyHardwareBenchmarkResults();

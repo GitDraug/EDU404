@@ -4,10 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "CommonActivatableWidget.h"
-#include "EDU_PLAYER_SettingsWidget.generated.h"
+#include "EDU_USER_SettingsWidget.generated.h"
 
 class UCommonTextBlock;
-class UEDU_PLAYER_SelectionBase;
+class UEDU_USER_SelectionBase;
 class UWidget;
 class UComboBoxString;
 class UCheckBox;
@@ -96,7 +96,7 @@ public:
 };
 
 UCLASS()
-class EDU_CORE_API UEDU_PLAYER_SettingsWidget : public UCommonActivatableWidget
+class EDU_USER_API UEDU_USER_SettingsWidget : public UCommonActivatableWidget
 {
 	GENERATED_BODY()
 
@@ -152,7 +152,7 @@ protected:
 	// Framerate
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> FramerateSelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> FramerateSelectionWidget;
 
 	
 	/* TODO ----------------------- FPS Meter ---------------------------
@@ -179,62 +179,62 @@ protected:
 	// AntiAliasing Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> AntiAliasingQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> AntiAliasingQualitySelectionWidget;
 	
 	//-------------------------------------------------------------
 	// Foliage Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> FoliageQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> FoliageQualitySelectionWidget;
 
 	//-------------------------------------------------------------
 	// Global Illumination Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> GlobalIlluminationQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> GlobalIlluminationQualitySelectionWidget;
 
 	//-------------------------------------------------------------
 	// PostProcessing Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> PostProcessingQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> PostProcessingQualitySelectionWidget;
 	
 	//-------------------------------------------------------------
 	// Reflection Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> ReflectionQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> ReflectionQualitySelectionWidget;
 
 	//-------------------------------------------------------------
 	// ShadingQuality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> ShadingQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> ShadingQualitySelectionWidget;
 
 	//-------------------------------------------------------------
 	// Shadow Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> ShadowQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> ShadowQualitySelectionWidget;
 	
 	//-------------------------------------------------------------
 	// Texture Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> TextureQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> TextureQualitySelectionWidget;
 	
 	
 	//-------------------------------------------------------------
 	// Visual Effects
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> VFXQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> VFXQualitySelectionWidget;
 
 	//-------------------------------------------------------------
 	// View Distance
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_PLAYER_SelectionBase> ViewDistanceQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionBase> ViewDistanceQualitySelectionWidget;
 	//------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------

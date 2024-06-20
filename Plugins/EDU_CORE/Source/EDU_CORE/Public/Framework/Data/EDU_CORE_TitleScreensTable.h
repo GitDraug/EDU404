@@ -9,7 +9,7 @@
 --------------------------------------------------------------------------------
   This FStruct allows a DataTable to be constructed in the editor with
   these predetermined rows. It's used by EDU_CORE_GameMode_Splash to load the
-  desired TitleScreen.
+  desired TtleScreen.
 ------------------------------------------------------------------------------*/
 
 USTRUCT(BlueprintType)

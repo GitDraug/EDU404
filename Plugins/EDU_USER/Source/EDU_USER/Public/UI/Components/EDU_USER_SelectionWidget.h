@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "CommonUserWidget.h"
-#include "EDU_PLAYER_SelectionBase.generated.h"
+#include "EDU_USER_SelectionWidget.generated.h"
 
 class UCommonTextBlock;
 class UButton;
@@ -17,11 +17,6 @@ class UButton;
 
 TODO:
   this class need to save its settings.
-
-  This Class might be better in a Player.plugin, as it makes use of
-   - EnhancedInput
-   - CommonUI.
-   - UMG
 
    Since this acts like a button, functionality for styles should be added.
    Check https://youtu.be/Rvw-YCEyUTI?si=ULh8hYfhmGNKUup4 11:00
@@ -39,14 +34,14 @@ struct FSelectionOption // Used by the Array of SelectionOptions
 
 
 UCLASS(Blueprintable, BlueprintType)
-class EDU_CORE_API UEDU_PLAYER_SelectionBase : public UCommonUserWidget
+class EDU_USER_API UEDU_USER_SelectionBase : public UCommonUserWidget
 {
 	GENERATED_BODY()
 //------------------------------------------------------------------------------
 // Initialization & Object lifetime management
 //------------------------------------------------------------------------------	
 public:
-  UEDU_PLAYER_SelectionBase();
+  UEDU_USER_SelectionBase();
 
   // This acts as "OnConstructed()", called through: UUserWidget::OnWidgetRebuilt().
   // It notifies that the widget that it has been constructed.

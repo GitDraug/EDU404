@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class EDU_CORE : ModuleRules
+public class EDU_USER : ModuleRules
 {
-	public EDU_CORE(ReadOnlyTargetRules Target) : base(Target)
+	public EDU_USER(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
@@ -38,7 +38,9 @@ public class EDU_CORE : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"UMG",
 				"EnhancedInput",
+				"CommonUI"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

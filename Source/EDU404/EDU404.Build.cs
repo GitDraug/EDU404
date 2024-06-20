@@ -16,6 +16,7 @@ public class EDU404 : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"EDU_CORE",
+			"EDU_USER",
 			"OSSV1_Multiplayer_Plugin"
 		});
 
