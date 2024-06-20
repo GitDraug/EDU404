@@ -13,4 +13,13 @@ Project Settings>Platforms>Windows
 // Git
 //------------------------------------
 Git is easiest to just set trough the Unreal Editor, and put link the adress to an online Riposatory. 
+Make sure the GitIgnore is there from the start.
+Don't create a GitIgnore if one already exist.
+
 Use Initilize with Git and accept.
+
+//------------------------------------
+// Plugins
+//------------------------------------
+Use Capitals for Plugin prefixes, it makes everything easier to read.
+Plugins will be autoimported into Rider, but not included in your buildfile.
