@@ -7,7 +7,7 @@
 #include "EDU_USER_SettingsWidget.generated.h"
 
 class UCommonTextBlock;
-class UEDU_USER_SelectionBase;
+class UEDU_USER_SelectionWidget;
 class UWidget;
 class UComboBoxString;
 class UCheckBox;
@@ -152,7 +152,7 @@ protected:
 	// Framerate
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> FramerateSelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> FramerateSelectionWidget;
 
 	
 	/* TODO ----------------------- FPS Meter ---------------------------
@@ -179,62 +179,62 @@ protected:
 	// AntiAliasing Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> AntiAliasingQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> AntiAliasingQualitySelectionWidget;
 	
 	//-------------------------------------------------------------
 	// Foliage Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> FoliageQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> FoliageQualitySelectionWidget;
 
 	//-------------------------------------------------------------
 	// Global Illumination Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> GlobalIlluminationQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> GlobalIlluminationQualitySelectionWidget;
 
 	//-------------------------------------------------------------
 	// PostProcessing Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> PostProcessingQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> PostProcessingQualitySelectionWidget;
 	
 	//-------------------------------------------------------------
 	// Reflection Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> ReflectionQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> ReflectionQualitySelectionWidget;
 
 	//-------------------------------------------------------------
 	// ShadingQuality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> ShadingQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> ShadingQualitySelectionWidget;
 
 	//-------------------------------------------------------------
 	// Shadow Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> ShadowQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> ShadowQualitySelectionWidget;
 	
 	//-------------------------------------------------------------
 	// Texture Quality
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> TextureQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> TextureQualitySelectionWidget;
 	
 	
 	//-------------------------------------------------------------
 	// Visual Effects
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> VFXQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> VFXQualitySelectionWidget;
 
 	//-------------------------------------------------------------
 	// View Distance
 	//-------------------------------------------------------------
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	TObjectPtr<UEDU_USER_SelectionBase> ViewDistanceQualitySelectionWidget;
+	TObjectPtr<UEDU_USER_SelectionWidget> ViewDistanceQualitySelectionWidget;
 	//------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------

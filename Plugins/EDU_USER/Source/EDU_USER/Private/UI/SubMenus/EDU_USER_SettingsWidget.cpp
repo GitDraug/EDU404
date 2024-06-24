@@ -1,7 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-#include "UI/Components/EDU_USER_SelectionWidget.h"
 #include "UI/SubMenus/EDU_USER_SettingsWidget.h"
+#include "UI/Components/EDU_USER_SelectionWidget.h"
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
 #include "Components/ComboBoxString.h"
@@ -135,7 +135,7 @@ namespace
 	// Define a structure to hold UI widget and associated get/set functions.
 	struct FSelectionElement
 	{
-		UEDU_USER_SelectionBase* SelectionWidget;
+		UEDU_USER_SelectionWidget* SelectionWidget;
 
 		// Member function pointer to a getter function in UGameUserSettings.
 		GetQuality GetQuality;

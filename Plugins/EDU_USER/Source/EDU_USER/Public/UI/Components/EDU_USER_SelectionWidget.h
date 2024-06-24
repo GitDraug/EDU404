@@ -34,14 +34,14 @@ struct FSelectionOption // Used by the Array of SelectionOptions
 
 
 UCLASS(Blueprintable, BlueprintType)
-class EDU_USER_API UEDU_USER_SelectionBase : public UCommonUserWidget
+class EDU_USER_API UEDU_USER_SelectionWidget : public UCommonUserWidget
 {
 	GENERATED_BODY()
 //------------------------------------------------------------------------------
 // Initialization & Object lifetime management
 //------------------------------------------------------------------------------	
 public:
-  UEDU_USER_SelectionBase();
+  UEDU_USER_SelectionWidget();
 
   // This acts as "OnConstructed()", called through: UUserWidget::OnWidgetRebuilt().
   // It notifies that the widget that it has been constructed.

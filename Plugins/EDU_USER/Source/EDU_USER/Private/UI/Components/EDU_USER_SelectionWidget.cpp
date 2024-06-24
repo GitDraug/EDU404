@@ -10,7 +10,7 @@
 //------------------------------------------------------------------------------
 // Initialization & Object lifetime management
 //------------------------------------------------------------------------------
-UEDU_USER_SelectionBase::UEDU_USER_SelectionBase()
+UEDU_USER_SelectionWidget::UEDU_USER_SelectionWidget()
 { FLOW_LOG
 	// Reset selection
 		CurrentSelection = 0;
@@ -48,7 +48,7 @@ UEDU_USER_SelectionBase::UEDU_USER_SelectionBase()
 	SetVisibilityInternal(ESlateVisibility::Visible);
 }
 
-void UEDU_USER_SelectionBase::NativeConstruct()
+void UEDU_USER_SelectionWidget::NativeConstruct()
 { FLOW_LOG
 	// Super::NativeConstruct(); // <- Don't
 
@@ -74,7 +74,7 @@ void UEDU_USER_SelectionBase::NativeConstruct()
 	  when the left or right keys are pressed.
 	-------------------------------------------------------------------*/
 	FCustomWidgetNavigationDelegate NavigationDelegate;
-	NavigationDelegate.BindDynamic(this, &UEDU_USER_SelectionBase::OnNavigation);
+	NavigationDelegate.BindDynamic(this, &UEDU_USER_SelectionWidget::OnNavigation);
 	
 	SetNavigationRuleCustom(EUINavigation::Left, NavigationDelegate);
 	SetNavigationRuleCustom(EUINavigation::Right, NavigationDelegate);
@@ -91,7 +91,7 @@ void UEDU_USER_SelectionBase::NativeConstruct()
 // Functionality: OnNavigation
 //------------------------------------------------------------------------------
 
-UWidget* UEDU_USER_SelectionBase::OnNavigation(EUINavigation InNavigation)
+UWidget* UEDU_USER_SelectionWidget::OnNavigation(EUINavigation InNavigation)
 {
 	FLOW_LOG
 	  if(!(InNavigation == EUINavigation::Left || InNavigation == EUINavigation::Right)){ FLOW_LOG_WARNING("Wrong EUINavigation; returning null") return nullptr; }
@@ -122,12 +122,12 @@ UWidget* UEDU_USER_SelectionBase::OnNavigation(EUINavigation InNavigation)
 	return this;
 }
 
-void UEDU_USER_SelectionBase::SelectPrevious()
+void UEDU_USER_SelectionWidget::SelectPrevious()
 { FLOW_LOG
 	OnNavigation(EUINavigation::Left);
 }
 
-void UEDU_USER_SelectionBase::SelectNext()
+void UEDU_USER_SelectionWidget::SelectNext()
 { FLOW_LOG
 	OnNavigation(EUINavigation::Right);
 }
@@ -136,18 +136,18 @@ void UEDU_USER_SelectionBase::SelectNext()
 // Functionality: Selection
 //------------------------------------------------------------------------------
 
-void UEDU_USER_SelectionBase::ClearCurrentSelection()
+void UEDU_USER_SelectionWidget::ClearCurrentSelection()
 { FLOW_LOG
 	OptionsArray.Reset();
 }
 
-void UEDU_USER_SelectionBase::AddOption(const FSelectionOption& inOption)
+void UEDU_USER_SelectionWidget::AddOption(const FSelectionOption& inOption)
 { FLOW_LOG
 	OptionsArray.Add(inOption);
 	UpdateCurrentSelection();
 }
 
-void UEDU_USER_SelectionBase::SetCurrentSelection(int Index)
+void UEDU_USER_SelectionWidget::SetCurrentSelection(int Index)
 { FLOW_LOG
 	// We want to make sure the InIndex is actually within the array.
 	if(Index < 0 || Index > OptionsArray.Num()) { FLOW_LOG_ERROR("Index is out of bounds") return; }
@@ -156,7 +156,7 @@ void UEDU_USER_SelectionBase::SetCurrentSelection(int Index)
 	UpdateCurrentSelection();
 }
 
-void UEDU_USER_SelectionBase::UpdateCurrentSelection()
+void UEDU_USER_SelectionWidget::UpdateCurrentSelection()
 { FLOW_LOG
 	if (CurrentSelection < 0 || CurrentSelection >= OptionsArray.Num()) { FLOW_LOG_ERROR("Index is out of bounds") return; }
 	
