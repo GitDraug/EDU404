@@ -3,14 +3,15 @@
 
 #include "Framework/Pawns/EDU_USER_CameraPawn.h"
 
-#include "EnhancedInputSubsystems.h"
 #include "Camera/CameraComponent.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
 #include "Framework/Data/EDU_USER_DataTypes.h"
 #include "Framework/Data/EDU_USER_CameraPawnInputDataAsset.h"
 #include "Framework/Data/FlowLog.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Kismet/GameplayStatics.h"
+#include "UI/HUD/EDU_USER_HUD.h"
 
 //------------------------------------------------------------------------------
 // Construction & Init
@@ -28,12 +29,18 @@ AEDU_USER_CameraPawn::AEDU_USER_CameraPawn(const FObjectInitializer& ObjectIniti
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComponent"));
 	SpringArmComponent->SetupAttachment(RootComponent);
 	SpringArmComponent->TargetArmLength = 2000.f;
-	SpringArmComponent->bDoCollisionTest = false;
-	// SpringArmComponent->bInheritPitch = false;
+	SpringArmComponent->bDoCollisionTest = true;
 
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComponent"));
 	CameraComponent->SetupAttachment(SpringArmComponent);
+
+	// Initiate Controller
+	if(LocalController == nullptr){	LocalController = Cast<APlayerController>(GetController()); }
 }
+
+//------------------------------------------------------------------------------
+// Input Setup
+//------------------------------------------------------------------------------
 
 void AEDU_USER_CameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 { FLOW_LOG
@@ -73,29 +80,45 @@ void AEDU_USER_CameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 			EnhancedInputComponent->BindAction(InputData->KeyRotate, ETriggerEvent::Triggered, this, &ThisClass::Input_KeyRotate);
 		
 			EnhancedInputComponent->BindAction(InputData->Zoom, ETriggerEvent::Triggered, this, &ThisClass::Input_Zoom);
+			
+			EnhancedInputComponent->BindAction(InputData->FreeLookToggle, ETriggerEvent::Started, this, &ThisClass::Input_FreeLook_Pressed);
+			EnhancedInputComponent->BindAction(InputData->FreeLookToggle, ETriggerEvent::Completed, this, &ThisClass::Input_FreeLook_Released);
+			
+			EnhancedInputComponent->BindAction(InputData->MouseDragToggle, ETriggerEvent::Started, this, &ThisClass::Input_MouseDrag_Pressed);
+			EnhancedInputComponent->BindAction(InputData->MouseDragToggle, ETriggerEvent::Completed, this, &ThisClass::Input_MouseDrag_Released);
 
-			EnhancedInputComponent->BindAction(InputData->FreeLook, ETriggerEvent::Triggered, this, &ThisClass::Input_FreeLook);
-			EnhancedInputComponent->BindAction(InputData->FreeLook_Pressed, ETriggerEvent::Started, this, &ThisClass::Input_FreeLook_Pressed);
-			EnhancedInputComponent->BindAction(InputData->FreeLook_Released, ETriggerEvent::Completed, this, &ThisClass::Input_FreeLook_Released);
+			EnhancedInputComponent->BindAction(InputData->AutoScrollToggle, ETriggerEvent::Started, this, &ThisClass::Input_AutoScroll_Pressed);
+			EnhancedInputComponent->BindAction(InputData->AutoScrollToggle, ETriggerEvent::Completed, this, &ThisClass::Input_AutoScroll_Released);
 			
 			//------------------------------------------------------------------------------
 			// Modifier Keys
 			//------------------------------------------------------------------------------
-			EnhancedInputComponent->BindAction(InputData->Mod_1_Pressed, ETriggerEvent::Started, this, &ThisClass::Input_Mod_1_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mod_1_Released, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_1_Released);
+			EnhancedInputComponent->BindAction(InputData->Mod_1, ETriggerEvent::Started, this, &ThisClass::Input_Mod_1_Pressed);
+			EnhancedInputComponent->BindAction(InputData->Mod_1, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_1_Released);
 			
-			EnhancedInputComponent->BindAction(InputData->Mod_2_Pressed, ETriggerEvent::Started, this, &ThisClass::Input_Mod_2_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mod_2_Released, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_2_Released);
+			EnhancedInputComponent->BindAction(InputData->Mod_2, ETriggerEvent::Started, this, &ThisClass::Input_Mod_2_Pressed);
+			EnhancedInputComponent->BindAction(InputData->Mod_2, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_2_Released);
 
-			EnhancedInputComponent->BindAction(InputData->Mod_3_Pressed, ETriggerEvent::Started, this, &ThisClass::Input_Mod_3_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mod_3_Released, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_3_Released);
+			EnhancedInputComponent->BindAction(InputData->Mod_3, ETriggerEvent::Started, this, &ThisClass::Input_Mod_3_Pressed);
+			EnhancedInputComponent->BindAction(InputData->Mod_3, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_3_Released);
 			
-			EnhancedInputComponent->BindAction(InputData->Mod_4_Pressed, ETriggerEvent::Started, this, &ThisClass::Input_Mod_4_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mod_4_Released, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_4_Released);
+			EnhancedInputComponent->BindAction(InputData->Mod_4, ETriggerEvent::Started, this, &ThisClass::Input_Mod_4_Pressed);
+			EnhancedInputComponent->BindAction(InputData->Mod_4, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_4_Released);
+
+			//------------------------------------------------------------------------------
+			// Mouse Input functions; Multifunctional, so best to use simple names.
+			//------------------------------------------------------------------------------
+			EnhancedInputComponent->BindAction(InputData->Mouse_1, ETriggerEvent::Started, this, &ThisClass::Input_Mouse_1_Pressed);
+			EnhancedInputComponent->BindAction(InputData->Mouse_1, ETriggerEvent::Triggered, this, &ThisClass::Input_Mouse_1_Triggered);
+			EnhancedInputComponent->BindAction(InputData->Mouse_1, ETriggerEvent::Completed, this, &ThisClass::Input_Mouse_1_Pressed);
 			
-			// TODO
-			// EnhancedInputComponent->BindAction(InputData->MouseMove_Pressed, ETriggerEvent::Triggered, this, &ThisClass::);
-			// EnhancedInputComponent->BindAction(InputData->MouseMove_Released, ETriggerEvent::Completed, this, &ThisClass::);
+			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Started, this, &ThisClass::Input_Mouse_2_Pressed);
+			EnhancedInputComponent->BindAction(InputData->Mouse_1, ETriggerEvent::Triggered, this, &ThisClass::Input_Mouse_1_Triggered);
+			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Completed, this, &ThisClass::Input_Mouse_2_Released);
+
+			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Started, this, &ThisClass::Input_Mouse_3_Pressed);
+			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Triggered, this, &ThisClass::Input_Mouse_3_Triggered);
+			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Completed, this, &ThisClass::Input_Mouse_3_Released);
 			
 			// Finish Setup
 			SetPlayerInputMode();
@@ -120,7 +143,7 @@ void AEDU_USER_CameraPawn::SetInputDefault(const bool bEnabled) const
 	}
 
 	//------------------------------------------------------------------------------
-	// Input Data DevCheck for easy bebugging
+	// Input Data DevCheck for easy debugging
 	//------------------------------------------------------------------------------
 	// KeyMove
 	FLOW_LOG_IF( (InputData->KeyMoveSpeed ==0 ),			FLOW_LOG_ERROR("InputData->MoveSpeed is 0, the pawn might not be able to Move"))
@@ -156,57 +179,6 @@ void AEDU_USER_CameraPawn::SetPlayerInputMode()
 	}
 }
 
-void AEDU_USER_CameraPawn::SetPawnControlDefaults()
-{ FLOW_LOG
-	if(IsLocallyControlled() && SpringArmComponent != nullptr && InputData != nullptr)
-	{
-		// Trace Default
-		TargetLocation = GetActorLocation();
-		
-		// Zoom Default
-		TargetZoom = InputData->StartZoom;
-
-		// Rotation Default.
-		const FRotator Rotation = SpringArmComponent->GetRelativeRotation();
-		TargetRotation = FRotator(Rotation.Pitch - InputData->StartPitch, Rotation.Yaw, 0.f);
-		Pitch = TargetRotation.Pitch;
-		Yaw = TargetRotation.Yaw;
-				
-		// All set, start ticking!
-		bIsInitialized = true;
-	}
-}
-
-//------------------------------------------------------------------------------
-// Object Lifetime Management
-//------------------------------------------------------------------------------
-void AEDU_USER_CameraPawn::PossessedBy(AController* NewController)
-{
-	Super::PossessedBy(NewController);
-}
-
-void AEDU_USER_CameraPawn::BeginPlay()
-{ FLOW_LOG
-	Super::BeginPlay();
-	
-}
-
-void AEDU_USER_CameraPawn::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	// Conditional Tick
-	if(SpringArmComponent == nullptr || !bIsInitialized) return;
-
-	// Actual movement
-	UpdateCamera(DeltaTime);
-
-	if (bZoomIn || bZoomOut)
-	{
-		UpdateCameraZoom(DeltaTime);
-	}
-}
-
 void AEDU_USER_CameraPawn::AddInputMappingContext(const UInputMappingContext* InputMappingContext, const int32 MappingPriority) const
 { FLOW_LOG
 	if(InputMappingContext == nullptr) { FLOW_LOG_ERROR("InputMappingContext == nullptr") return; }
@@ -235,6 +207,160 @@ void AEDU_USER_CameraPawn::RemoveInputMappingContext(const UInputMappingContext*
 	}
 }
 
+void AEDU_USER_CameraPawn::SetPawnControlDefaults()
+{ FLOW_LOG
+	if(IsLocallyControlled() && SpringArmComponent != nullptr && InputData != nullptr)
+	{
+		// Trace Default
+		TargetLocation = GetActorLocation();
+		
+		// Zoom Default
+		TargetZoom = InputData->StartZoom;
+		ZoomTraceLength = InputData->ZoomTraceLength;
+		SpringArmComponent->TargetArmLength = TargetZoom;
+
+		// Rotation Default.
+		const FRotator Rotation = SpringArmComponent->GetRelativeRotation();
+		TargetRotation = FRotator(Rotation.Pitch - InputData->StartPitch, Rotation.Yaw, 0.f);
+
+		// EdgeScroll Settings
+		ScreenEdgeArea = InputData->ScreenEdgeArea;
+		EdgeScrollSpeed = InputData->EdgeScrollSpeed;
+
+		// Make sure the Camera doesn't hit itself when tracing.
+		CameraTraceCollisionParams.AddIgnoredActor(this); // Ignore the player
+				
+		// All set, start ticking!
+		bIsInitialized = true;
+
+		// Interpolation for smooth camera setup
+		EnableInterpRotation();
+	}
+}
+
+//------------------------------------------------------------------------------
+// Object Lifetime Management
+//------------------------------------------------------------------------------
+void AEDU_USER_CameraPawn::PossessedBy(AController* NewController)
+{ FLOW_LOG
+	Super::PossessedBy(NewController);
+}
+
+void AEDU_USER_CameraPawn::BeginPlay()
+{ FLOW_LOG
+	Super::BeginPlay();
+}
+
+void AEDU_USER_CameraPawn::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// Debug Messages
+	/*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Yellow, FString::Printf(TEXT("AutoScrollDirection.X %f"), ScrollDirection.X));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Yellow, FString::Printf(TEXT("AutoScrollDirection.Y %f"), ScrollDirection.Y));
+	
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Red, FString::Printf(TEXT("MousePosX %f"), MousePos.X));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Red, FString::Printf(TEXT("MousePosY %f"), MousePos.Y));
+	
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan, FString::Printf(TEXT("Distance to Left Edge: %f"), DistanceToLeftEdge));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan, FString::Printf(TEXT("Distance to Right Edge: %f"), DistanceToRightEdge));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan, FString::Printf(TEXT("Distance to Top Edge: %f"), DistanceToTopEdge));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan, FString::Printf(TEXT("Distance to Bottom Edge: %f"), DistanceToBottomEdge));
+	
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("GetComponentRotation().SpringArm %% %f"), SpringArmComponent->TargetArmLength / InputData->MaxZoom));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("SpringArmComponent.Yaw %f"), SpringArmComponent->GetComponentRotation().Yaw));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("SpringArmComponent.Pitch %f"), SpringArmComponent->GetComponentRotation().Pitch));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("CameraAnchor.Yaw %f"), CameraAnchor->GetComponentRotation().Yaw));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("CameraAnchor.Pitch %f"), CameraAnchor->GetComponentRotation().Pitch));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("TargetPitch %f"), TargetRotation.Pitch));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("TargetYaw %f"), TargetRotation.Yaw));
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("bMouseDrag %d"), bMouseDrag));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("bFreeLook %d"), bFreeLook));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("bEdgeScroll %d"), bEdgeScroll));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("bAutoScroll %d"), bAutoScroll));
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.X %f"), MouseDirection.X));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.Y %f"), MouseDirection.Y));
+	
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("SavedMousePosY %f"), SavedMousePos.Y));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("SavedMousePosX %f"), SavedMousePos.X));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MousePosY %f"), MousePos.Y));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MousePosX %f"), MousePos.X));
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Green, FString::Printf(TEXT("bShowMouseCursor %d"), LocalController->bShowMouseCursor));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Green, FString::Printf(TEXT("bEnableClickEvents %d"), LocalController->bEnableClickEvents));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Green, FString::Printf(TEXT("bEnableMouseOverEvents %d"), LocalController->bEnableMouseOverEvents));
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.X %f"), MouseDirection.X));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.Y %f"), MouseDirection.Y));
+	-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+	
+	// Conditional Tick
+	if(SpringArmComponent == nullptr || InputData == nullptr || !bIsInitialized) { return; }
+	
+	if(bZoomIn || bZoomOut)
+	{
+		UpdateCameraZoom(DeltaTime);
+		if (bZoomFocusOn && !bZoomFocusFinished)
+		{
+			UpdateCameraLocation(DeltaTime);
+		}
+	}
+
+	// We put Interpolation on a timer to stop it form ticking all the time.
+	if(InterpTimer > 0 && bInterpMov)
+	{
+		UpdateCameraLocation(DeltaTime);
+		InterpTimer -= DeltaTime;
+	}
+	else
+	{
+		bInterpMov = false;
+	}
+
+	// We put Interpolation on a timer to stop it form ticking all the time.
+	if(InterpTimer > 0 && bInterpRot)
+	{
+		UpdateCameraRotation(DeltaTime);
+		InterpTimer -= DeltaTime;
+	}
+	else
+	{
+		bInterpRot = false;
+	}
+	
+	// EdgeScroll will interfere with FreeLook and MouseDrag.
+	if(bFreeLook && !bMouseDrag && !bAutoScroll)
+	{
+		FreeLook();
+		UpdateCameraRotation(DeltaTime);
+		return;
+	}
+
+	// MouseDrag will interfere with FreeLook and edgeScroll.
+	if(bMouseDrag && !bFreeLook&& !bAutoScroll)
+	{
+		MouseDrag();
+		return;
+	}
+	
+	// MouseDrag and FreeLook interferes with EdgeScroll
+	if(bAutoScroll && !bFreeLook && !bMouseDrag)
+	{
+		AutoScroll();
+		return;
+	}
+	
+	// MouseDrag and FreeLook interferes with EdgeScroll
+	if(bEdgeScroll == true)
+	{
+		EdgeScroll();
+	}
+	
+}
+
 void AEDU_USER_CameraPawn::UnPossessed()
 { FLOW_LOG
 
@@ -244,6 +370,7 @@ void AEDU_USER_CameraPawn::UnPossessed()
 	bMod_3 = false;
 	bMod_4 = false;
 	bFreeLook = false;
+	bMouseDrag = false;
 	
 	Super::UnPossessed();
 }
@@ -251,106 +378,38 @@ void AEDU_USER_CameraPawn::UnPossessed()
 //------------------------------------------------------------------------------
 // Functionality: Utility
 //------------------------------------------------------------------------------
-void AEDU_USER_CameraPawn::GetTerrainPosition(FVector& TargetPos, FVector& LastValidPos) const
+
+void AEDU_USER_CameraPawn::ResetCamera()
 { FLOW_LOG
-	// New trace
-	FHitResult GroundTrace;
-	FCollisionQueryParams CollisionParameters;
+	EnableInterpRotation();
+	EnableInterpMovement();
 	
-	FVector TraceStart = TargetPos;
-		TraceStart.Z += 10'000.f;
-	
-	FVector TraceEnd = TargetPos;
-		TraceEnd.Z -= 10'000.f;
-	
-		// Draw the debug sphere
-		DrawDebugSphere(GetWorld(), TargetPos,  50.0f, 12, FColor::Green, false, 1.0f, 0, 2.0f);
+	// TargetLocation.X = 0.f;
+	// TargetLocation.Y = 0.f;
 
-		// Draw the debug line
-		DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Green, false, 1.0f, 0, 2.0f);
-	
-	if(GetWorld())
-	{ // RTS_TRACE_CHANNEL_TERRAIN is defined in EDU_USER_StaticGameData 
-		if(GetWorld()->LineTraceSingleByChannel(GroundTrace, TraceStart, TraceEnd, ECC_Visibility, CollisionParameters))
-		{
-			TargetPos = GroundTrace.ImpactPoint;
-			// Trace was valid, save it.
-			LastValidPos = GroundTrace.ImpactPoint;
-		}
-		else
-		{ // If the tracing fails, because we're outside the map boundaries, we'll use the last cached position.
-			TargetPos = LastValidPos;
-		}
-	}
-}
+	TargetRotation.Pitch = AutoPitchMin;
+	// TargetRotation.Yaw = 0.f;
 
-void AEDU_USER_CameraPawn::UpdateCamera(const float Deltatime)
-{ FLOW_LOG_TICK
-	// TODO: These need their own separate functions with bCheck in tick
-	
-	if(SpringArmComponent != nullptr && InputData != nullptr)
+	if(bAutoPitch)
 	{
-		// Move Pawn to target location
-		// Interpolate vector from Current to Target, scaled by distance to Target, so it has a strong start speed and ease out.
-		FVector InterpLocation = FMath::VInterpTo(GetActorLocation(), TargetLocation, Deltatime, InputData->MoveInterSpeed);
-		SetActorLocation(InterpLocation);
-
-
-		// Rotate the Camera to target pitch
-		// Observer the SpringArmComponent; it acts like a barrel, on a turret, only going up and down. It doesn't affect the rotation or the pitch of the CameraAnchor. 
-		FRotator InterpPitch = FMath::RInterpTo(SpringArmComponent->GetRelativeRotation(), TargetRotation, Deltatime, InputData->PitchInterpSpeed);
-		InterpPitch.Yaw = 0.f;
-		SpringArmComponent->SetRelativeRotation(InterpPitch);
-
-		// Rotate the Camera to target rotation
-		// Observer the camera Anchor; since the new move position is in front of the CameraAchor, we don't want it to pitch down into the ground, only rotate.
-		RotationSpeed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ? InputData->RotationInterpSpeed * InputData->RotationSpeedMultiplier : InputData->RotationInterpSpeed;
-		FRotator InterpRotation = FMath::RInterpTo(CameraAnchor->GetRelativeRotation(), TargetRotation, Deltatime, RotationSpeed);
-		InterpRotation.Pitch = 0.f;
-		CameraAnchor->SetRelativeRotation(InterpRotation);	
-
+		bAutoPitchDisengaged = false;
 	}
 }
 
-void AEDU_USER_CameraPawn::UpdateCameraZoom(const float Deltatime)
+void AEDU_USER_CameraPawn::EnableInterpRotation()
 { FLOW_LOG
-
-	TODO: This functions uses tracks the lengt of the cameraarm to know when to stop, but it becopmes near to impossible to
-	sync it with the hrizontal movement without a timer. This funciton should be refactored so it tracks trough a timer instead.
-	Put the timer in tick and link it to horizontal movement, or link the horizontal movement to this spring arms countdown.
-	
-	// <!> Note that this is a tick executed function, so be careful to set values that shouldn't be updated on tick.
-	if (bZoomOut)
-	{
-		// Zoom camera to target zoom
-		// Interpolate float from Current to Target, scaled by distance to Target, so it has a strong start speed and ease out.
-		const float InterpZoom = FMath::FInterpTo(SpringArmComponent->TargetArmLength, TargetZoom, Deltatime, InputData->ZoomInterpSpeed);
-		SpringArmComponent->TargetArmLength = InterpZoom;
-
-		// Check if we should stop
-		if(SpringArmComponent->TargetArmLength > TargetZoom * 0.95f)
-		{
-			bZoomOut = false;
-		}
-	}
-
-	if (bZoomIn)
-	{
-		// Zoom camera to target zoom
-		// Interpolate float from Current to Target, scaled by distance to Target, so it has a strong start speed and ease out.
-		const float InterpZoom = FMath::FInterpTo(SpringArmComponent->TargetArmLength, TargetZoom, Deltatime, InputData->ZoomInterpSpeed);
-		SpringArmComponent->TargetArmLength = InterpZoom;
-		
-		// Check if we should stop
-		if(SpringArmComponent->TargetArmLength < TargetZoom * 1.1f)
-		{
-			bZoomIn = false;
-		}
-	}
+	bInterpRot = true;
+	InterpTimer = 1.f;
 }
 
-void AEDU_USER_CameraPawn::CameraTraceMove()
-{
+void AEDU_USER_CameraPawn::EnableInterpMovement(float Time)
+{ FLOW_LOG
+	bInterpMov = true;
+	InterpTimer = Time;
+}
+
+void AEDU_USER_CameraPawn::CameraTrace()
+{ FLOW_LOG
 	// Get the mouse position
 	if (LocalController && LocalController->GetMousePosition(MousePos.X, MousePos.Y))
 	{
@@ -360,99 +419,349 @@ void AEDU_USER_CameraPawn::CameraTraceMove()
 		{
 			// Define the start and end points of the trace
 			FVector TraceStart = WorldLocation;
-			FVector TraceEnd = WorldLocation + (WorldDirection * 10000'00.0f); // Trace 10k meters in the direction of the world direction
-
-			// Perform the line trace
-			FHitResult CameraTrace;
-			FCollisionQueryParams CollisionParameters;
-			CollisionParameters.AddIgnoredActor(this); // Ignore the player
-
-			// Perform the trace
-			if(GetWorld()->LineTraceSingleByChannel(CameraTrace, TraceStart, TraceEnd, ECC_Visibility, CollisionParameters))
+			FVector TraceEnd = WorldLocation + (WorldDirection * (ZoomTraceLength+SpringArmComponent->TargetArmLength));
+			
+			// Perform the CameraTrace
+			if(GetWorld()->LineTraceSingleByChannel(CameraTraceResult, TraceStart, TraceEnd, ECC_Visibility, CameraTraceCollisionParams))
 			{
 				// Check if we hit something
-				if(CameraTrace.ImpactPoint.X != 0 && CameraTrace.ImpactPoint.Y != 0)
-				{
+				if(CameraTraceResult.bBlockingHit)
+				{					
 					/*---------------------------------------------------------------------------
 					  Due to vector math, we need to multiply the VectorSum in parts,
-					  otherwise we'll end up all over the place. Dividing it twice will give
-					  us 25% of the distance between, making it a smooth ride.
+					  otherwise we'll end up all over the place, dividing it will make
+					  it a smoother ride than jumping the entire distance immediately.
 					---------------------------------------------------------------------------*/
-					FVector HalfWayPoint = (CameraTrace.ImpactPoint + TargetLocation) * 0.5f;
-					TargetLocation = (TargetLocation + HalfWayPoint) * 0.5f;
+					FVector HalfWayPoint = (CameraTraceResult.ImpactPoint + TargetLocation) * 0.5f;
+					TargetLocation = HalfWayPoint; // We move to HalfWayPoint, but we know where the ground is.
+					LastValidLocation = CameraTraceResult.ImpactPoint;
+					
+					/*///-------------------------------------------------------------------------------------
+					  DrawDebugSphere(GetWorld(), CameraTraceResult.ImpactPoint, 50.0f, 12, FColor::Blue, false, 30.0f, 0, 2.0f);
+					  DrawDebugSphere(GetWorld(), TargetLocation, 100.0f, 12, FColor::Green, false, 30.0f, 0, 2.0f);
+					  DrawDebugSphere(GetWorld(), LastValidLocation, 150.0f, 12, FColor::Red, false, 30.0f, 0, 2.0f);
+					//*///-------------------------------------------------------------------------------------
+					return;
+				}
+			}
 
-					// Level the new position with the ground.
-					GetTerrainPosition(TargetLocation, LastValidLocation);
+			//-----------------------------------------------------------------------------
+			// If we don't hit the ground, we can travel in the general direction instead.
+			//-----------------------------------------------------------------------------
+			float Distance = SpringArmComponent->TargetArmLength > 500'00.f ? SpringArmComponent->TargetArmLength : 500'00.f;
+			CameraTraceEndLocation = WorldLocation + (WorldDirection * Distance);
+			TraceStart = CameraTraceEndLocation;
+			TraceEnd = CameraTraceEndLocation;
+
+			// Due to vector math we need revers direction if the CameraTraceEndLocation is below 0, else it will shoot upwards.
+			if(CameraTraceEndLocation.Z <= 0.f)
+			{
+				TraceEnd.Z =- SpringArmComponent->TargetArmLength + Distance;
+			}
+			else
+			{
+				TraceEnd.Z =- SpringArmComponent->TargetArmLength - Distance;
+			}
+
+			/*///-------------------------------------------------------------------------------------
+			DrawDebugSphere(GetWorld(), TraceStart, 1000.0f, 12, FColor::Red, false, 10.0f, 0, 25.0f);
+			DrawDebugSphere(GetWorld(), TraceEnd, 1000.0f, 12, FColor::Blue, false, 10.0f, 0, 25.0f);
+			
+			DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Red, false, 10.0f, 0, 25.0f);
+			//*///-------------------------------------------------------------------------------------
+			
+			if(GetWorld()->LineTraceSingleByChannel(CameraTraceResult, TraceStart, TraceEnd, ECC_Visibility, CameraTraceCollisionParams))
+			{
+				if(CameraTraceResult.ImpactPoint.X && CameraTraceResult.ImpactPoint.Y)
+				{
+					FVector HalfWayPoint = (CameraTraceResult.ImpactPoint + TraceStart) * 0.5f;
+					if(bAutoPitch && !bAutoPitchDisengaged)
+					{ // If AutoPitch is on, we want to travel to the ground, pitching the camera in the air will look wierd.
+						TargetLocation = CameraTraceResult.ImpactPoint;
+					}
+					else
+					{ // If the user if FreeLooking, it's better to stop midway.
+						TargetLocation = HalfWayPoint;
+					}
 					
-					// Draw the debug sphere
-					DrawDebugSphere(GetWorld(), CameraTrace.ImpactPoint, 50.0f, 12, FColor::Blue, false, 1.0f, 0, 2.0f);
+					LastValidLocation = CameraTraceResult.ImpactPoint;
 					
-					DrawDebugSphere(GetWorld(), TargetLocation, 100.0f, 12, FColor::Green, false, 1.0f, 0, 2.0f);
-					
-					DrawDebugSphere(GetWorld(), LastValidLocation, 150.0f, 12, FColor::Red, false, 1.0f, 0, 2.0f);
+					/*///-------------------------------------------------------------------------------------
+					DrawDebugSphere(GetWorld(), HalfWayPoint, 1000.0f, 12, FColor::Red, false, 10.0f, 0, 40.0f);
+					DrawDebugSphere(GetWorld(), TargetLocation, 1000.0f, 12, FColor::Blue, false, 10.0f, 0, 20.0f);
+					DrawDebugSphere(GetWorld(), LastValidLocation, 1000.0f, 12, FColor::Green, false, 10.0f, 0, 5.0f);
+					//*///-------------------------------------------------------------------------------------
 				}
 			}
 		}
 	}
 }
 
-//------------------------------------------------------------------------------
-// Functionality: Input Functions
-//------------------------------------------------------------------------------
-
-void AEDU_USER_CameraPawn::Input_KeyMove(const FInputActionValue& InputActionValue)
-{ FLOW_LOG	
-	// WASD movement
-	if(SpringArmComponent != nullptr && InputData != nullptr && ensure(InputActionValue.GetValueType() == EInputActionValueType::Axis2D))
-	{
-		const FVector2d Value = InputActionValue.Get<FVector2d>();
-		const float Speed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ? InputData->KeyMoveSpeed * InputData->KeyMoveSpeedMultiplier : InputData->KeyMoveSpeed;
-
-		GetTerrainPosition(TargetLocation,LastValidLocation);
-
-		// We're not rotating the SpringArm, but the CameraAnchor.
-		TargetLocation += CameraAnchor->GetRelativeRotation().RotateVector(FVector(Value.X * Speed, Value.Y * Speed, 0.0f)); // Z should be 0.
-	}
-}
-
-void AEDU_USER_CameraPawn::Input_KeyRotate(const FInputActionValue& InputActionValue)
+void AEDU_USER_CameraPawn::MoveCameraAnchor(const FVector2d& Direction, const float& Speed)
 { FLOW_LOG
-	// if(bFreeLook) { return; }
-	if(InputData != nullptr && ensure(InputActionValue.GetValueType() == EInputActionValueType::Axis1D))
-	{
-		float YawInputValue = InputActionValue.Get<float>();
-		if(bInvertedRotation){ YawInputValue *= -1; }
-		
-		TargetRotation = FRotator(
-		// Don't Change the already existing Pitch
-			TargetRotation.Pitch,
-		// Add the new Yaw Input to the already existing Yaw, 360 is no issue. // TODO: Do the same with Pitch
-			TargetRotation.Yaw + YawInputValue * InputData->RotationSpeed,
-		// Do not roll.
-			0.f
-		);
-	}
-	UE_LOG(LogTemp, Display, TEXT("%f"),TargetRotation.Yaw);
+	// We're rotating CameraAnchor not the SpringArm
+	TargetLocation += CameraAnchor->GetRelativeRotation().RotateVector(FVector(Direction.X * Speed, Direction.Y * Speed, 0.0f)); // Z should be 0.
+	GetTerrainPosition(TargetLocation, LastValidLocation);
+	
+	EnableInterpMovement();
 }
 
-void AEDU_USER_CameraPawn::Input_FreeLook(const FInputActionValue& InputActionValue)
-{
-	if (!bFreeLook) { return; }
-	if (InputData == nullptr || InputActionValue.GetValueType() != EInputActionValueType::Axis2D) {	FLOW_LOG_ERROR("InputActionValue is not Axis2D, check the InputAction."); return; }
+void AEDU_USER_CameraPawn::GetTerrainPosition(FVector& TargetPos, FVector& LastValidPos) const
+{ FLOW_LOG
+	// New trace
+	FHitResult GroundTrace;
+	FCollisionQueryParams CollisionParameters;
+	
+	FVector TraceStart = TargetPos;
+		TraceStart.Z += 100'00.f;
+	
+	FVector TraceEnd = TargetPos;
+		TraceEnd.Z -= SpringArmComponent->TargetArmLength + 50'00.f;
+	
+		// Draw the debug sphere
+		// DrawDebugSphere(GetWorld(), TargetPos,  50.0f, 12, FColor::Green, false, 1.0f, 0, 2.0f);
 
-	// Extract X and Y from the InputActionValue
-	FVector2D AxisValue = InputActionValue.Get<FVector2D>();
+		// Draw the debug line
+		// DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Green, false, 1.0f, 0, 2.0f);
+	
+	if(GetWorld())
+	{ // RTS_TRACE_CHANNEL_TERRAIN is defined in EDU_USER_StaticGameData 
+		if(GetWorld()->LineTraceSingleByChannel(GroundTrace, TraceStart, TraceEnd, ECC_Visibility, CollisionParameters))
+		{
+			TargetPos = GroundTrace.ImpactPoint;
+			// Trace was valid, save it.
+			LastValidPos = GroundTrace.ImpactPoint;
+			
+			FVector HalfWayPoint = (LastValidPos + TargetPos) * 0.5f;
+			TargetPos = HalfWayPoint; // Smoother
+		}
+		else
+		{ // If the tracing fails, because we're outside the map boundaries, we'll use the last cached position.
+			FVector HalfWayPoint = (LastValidPos + TargetPos) * 0.5f;
+			TargetPos = HalfWayPoint; // Smoother
+		}
+	}
+}
+
+void AEDU_USER_CameraPawn::UpdateCameraRotation(const float DeltaTime) const
+{ FLOW_LOG
+	// Rotate the Camera to target pitch
+	// Observe the SpringArmComponent; it acts like a barrel, on a turret, only going up and down. It doesn't affect the rotation or the pitch of the CameraAnchor. 
+	FRotator InterpPitch = FMath::RInterpTo(SpringArmComponent->GetRelativeRotation(), TargetRotation, DeltaTime, InputData->PitchInterpSpeed);
+	InterpPitch.Yaw = 0.f;
+	SpringArmComponent->SetRelativeRotation(InterpPitch);
+
+	// Rotate the Camera to target rotation
+	// Observe the CameraAnchor; since the new move position is in front of the CameraAnchor, we don't want it to pitch down into the ground, only rotate.
+	float RotationSpeed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ? InputData->RotationInterpSpeed * InputData->RotationSpeedMultiplier : InputData->RotationInterpSpeed;
+	FRotator InterpRotation = FMath::RInterpTo(CameraAnchor->GetRelativeRotation(), TargetRotation, DeltaTime, RotationSpeed);
+	InterpRotation.Pitch = 0.f;
+	CameraAnchor->SetRelativeRotation(InterpRotation);	
+}
+
+void AEDU_USER_CameraPawn::UpdateCameraLocation(const float DeltaTime)
+{ FLOW_LOG
+	// Move Pawn to target location
+	// Interpolate vector from Current to Target, scaled by distance to Target, so it has a strong start speed and ease out.
+	FVector InterpLocation = FMath::VInterpTo(GetActorLocation(), TargetLocation, DeltaTime, InputData->MoveInterSpeed);
+	SetActorLocation(InterpLocation);
+}
+
+void AEDU_USER_CameraPawn::UpdateCameraZoom(const float DeltaTime)
+{ FLOW_LOG
+	// <!> Note that this is a tick executed function, so be careful to set values that shouldn't be updated on tick.
+	if (bZoomOut)
+	{
+		// Zoom camera to target zoom
+		// Interpolate float from Current to Target, scaled by distance to Target, so it has a strong start speed and ease out.
+		const float InterpZoom = FMath::FInterpTo(SpringArmComponent->TargetArmLength, TargetZoom, DeltaTime, InputData->ZoomInterpSpeed);
+		SpringArmComponent->TargetArmLength = InterpZoom;
+		
+		// Check if we should stop, we use 95%, because Interpolation algebra will run close to forever as the value gets smaller.
+		if(SpringArmComponent->TargetArmLength > TargetZoom * 0.98f)
+		{
+			bZoomOut = false;
+
+			if(bAutoPitch && SpringArmComponent->TargetArmLength > InputData->MaxZoom * 0.98f)
+			{
+				// If AutoPitch is Disengaged due to FreeLook, then we want to reset the camera when it Zooms out fully, same as in SupCom.
+				ResetCamera();
+			}
+		}
+		
+		if(bAutoPitch && !bAutoPitchDisengaged)
+		{
+			AutoPitch(DeltaTime);
+		}
+	}
+
+	if (bZoomIn)
+	{
+		// Zoom camera to target zoom
+		// Interpolate float from Current to Target, scaled by distance to Target, so it has a strong start speed and ease out.
+		const float InterpZoom = FMath::FInterpTo(SpringArmComponent->TargetArmLength, TargetZoom, DeltaTime, InputData->ZoomInterpSpeed);
+		SpringArmComponent->TargetArmLength = InterpZoom;
+		
+		// Check if we should stop, we use 95%, because Interpolation algebra will run close to forever as the value get smaller.
+		if(SpringArmComponent->TargetArmLength < TargetZoom * 1.1f)
+		{
+			bZoomIn = false;
+			bZoomFocusFinished = true;
+		}
+
+		if(bAutoPitch && !bAutoPitchDisengaged)
+		{
+			AutoPitch(DeltaTime);
+		}
+	}
+}
+
+void AEDU_USER_CameraPawn::UpdateMouseDirection()
+{ // TODO: Copy this to the playerController as a Getter.
+	/*----------------------- vs GetInputMouseDelta ------------------------------------
+	  This function updates the Mouse Input as a value, without the need of a viewport,
+	  meaning you can keep dragging as long as you have mouse pad space on your desk.
+
+	  The APlayerController->GetInputMouseDelta() does a similar thing, but only if
+	  a mouse button is held down. this one runs on tick instead, regardless if a
+	  mouse button uis held.
+	---------------------------------------------------------------------------------*/
+	LocalController->GetMousePosition(MousePos.X, MousePos.Y);
+
+	//-----------------------------------------------
+	MouseDirection.X = MousePos.X - SavedMousePos.X;
+	MouseDirection.Y = SavedMousePos.Y - MousePos.Y;
+	//-----------------------------------------------
 
 	// If the Player prefers inverted settings
-	if(bInvertedRotation){ AxisValue.X *= -1; }
-	if(bInvertedPitch){ AxisValue.Y *= -1; }
+	if(bInvertedYaw){ MouseDirection.X *= -1; }
+	if(bInvertedPitch){ MouseDirection.Y *= -1; }
+
+	// We return the mouse Position to where we started, else it will run in to the end of the monitor.
+	LocalController->SetMouseLocation(SavedMousePos.X, SavedMousePos.Y);
+}
+
+void AEDU_USER_CameraPawn::DisableMouseEvents()
+{ FLOW_LOG
+	LocalController->GetMousePosition(MousePos.X, MousePos.Y);
+
+	// Initial Position
+	SavedMousePos.X = MousePos.X;
+	SavedMousePos.Y = MousePos.Y;
+	
+	LocalController->bShowMouseCursor = false;
+	LocalController->bEnableClickEvents = false;
+	LocalController->bEnableTouchEvents = false;
+	LocalController->bEnableMouseOverEvents = false;
+}
+
+void AEDU_USER_CameraPawn::EnableMouseEvents() const
+{ FLOW_LOG
+	LocalController->SetMouseLocation(SavedMousePos.X, SavedMousePos.Y);
+	
+	LocalController->bShowMouseCursor = true;
+	LocalController->bEnableClickEvents = true;
+	LocalController->bEnableTouchEvents = true;
+	LocalController->bEnableMouseOverEvents = true;
+}
+
+void AEDU_USER_CameraPawn::AutoPitch(const float DeltaTime)
+{
+	float PitchRange = AutoPitchMax - AutoPitchMin;
+	float InvertedPercentage = 1.0f - SpringArmComponent->TargetArmLength / InputData->MaxZoom;
+	float AutoPitch = AutoPitchMin + (PitchRange * InvertedPercentage);
+			
+	FRotator InterpPitch = FMath::RInterpTo(SpringArmComponent->GetRelativeRotation(), TargetRotation, DeltaTime, InputData->PitchInterpSpeed);
+	InterpPitch.Yaw = 0.f;
+	TargetRotation.Pitch = AutoPitch;
+	SpringArmComponent->SetRelativeRotation(InterpPitch);
+}
+
+//------------------------------------------------------------------------------
+// Functionality: Special Movement
+//------------------------------------------------------------------------------
+
+void AEDU_USER_CameraPawn::EdgeScroll()
+{ // Tick Function
+	// Don't EdgeScroll if the mouse is outside the window.
+	if(!LocalController->GetMousePosition(MousePos.X, MousePos.Y)) {return; };
+	LocalController->GetViewportSize(ScreenSize.X, ScreenSize.Y);
+
+	DistanceToLeftEdge = MousePos.X;
+	DistanceToRightEdge = ScreenSize.X - MousePos.X;
+	DistanceToTopEdge = MousePos.Y;
+	DistanceToBottomEdge = ScreenSize.Y - MousePos.Y;
+	
+	if (DistanceToTopEdge <= ScreenEdgeArea)	{ ScrollDirection.X = ScreenEdgeArea - DistanceToTopEdge; } // Up
+	if (DistanceToBottomEdge <= ScreenEdgeArea)	{ ScrollDirection.X = DistanceToBottomEdge - ScreenEdgeArea; } // Down
+	if (DistanceToRightEdge <= ScreenEdgeArea)	{ ScrollDirection.Y = ScreenEdgeArea - DistanceToRightEdge; } // Right
+	if (DistanceToLeftEdge <= ScreenEdgeArea)	{ ScrollDirection.Y = DistanceToLeftEdge - ScreenEdgeArea; } // Left
+	
+	if(ScrollDirection.X != 0 || ScrollDirection.Y != 0)
+	{ FLOW_LOG
+		const float Speed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ?
+		/*----------------------------------------------------------------------------------
+		  Since some monitors are larger than others, we need to divide our ScrollDirection
+		  calculation with ScreenEdgeArea to turn the distance to the edge into a percentage,
+		  rather than using pixels.
+
+		  We also multiply the calculations with SpringArmComponent->TargetArmLength
+		  since we need to go faster if we are zoomed out.
+		----------------------------------------------------------------------------------*/
+		InputData->EdgeScrollSpeed * InputData->EdgeScrollSpeedMultiplier * SpringArmComponent->TargetArmLength * 0.02f:
+		InputData->EdgeScrollSpeed * SpringArmComponent->TargetArmLength * 0.02f;
+
+		ScrollDirection.X /= ScreenEdgeArea;
+		ScrollDirection.Y /= ScreenEdgeArea;
+		
+		MoveCameraAnchor(ScrollDirection, Speed);
+	}
+}
+
+void AEDU_USER_CameraPawn::AutoScroll()
+{ // Tick Function
+// Don't EdgeScroll if the mouse is outside the window.
+	UpdateMouseDirection();
+	LocalController->GetViewportSize(ScreenSize.X, ScreenSize.Y);
+
+	// We need to normalize the movement according to ScreenSize.
+	ScrollDirection.X += MouseDirection.Y/ScreenSize.Y;
+	ScrollDirection.Y += MouseDirection.X/ScreenSize.X;
+	
+	if(ScrollDirection.X != 0 || ScrollDirection.Y != 0)
+	{ FLOW_LOG
+		const float Speed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ?
+		/*----------------------------------------------------------------------------------
+		  Since some monitors are larger than others, we need to divide our ScrollDirection
+		  calculation with ScreenEdgeArea to turn the distance to the edge into a percentage,
+		  rather than using pixels.
+
+		  We also multiply the calculations with SpringArmComponent->TargetArmLength
+		  since we need to go faster if we are zoomed out.
+		----------------------------------------------------------------------------------*/
+		InputData->EdgeScrollSpeed * InputData->EdgeScrollSpeedMultiplier * SpringArmComponent->TargetArmLength * 0.1f:
+		InputData->EdgeScrollSpeed * SpringArmComponent->TargetArmLength * 0.1f;
+		
+		MoveCameraAnchor(ScrollDirection, Speed);
+	}
+}
+
+void AEDU_USER_CameraPawn::FreeLook()
+{ // FLOW_LOG
+	UpdateMouseDirection();
     
 	// Modifier Keys
-	float PitchSpeed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ? InputData->PitchSpeed * InputData->PitchSpeedMultiplier : InputData->PitchSpeed;
-	float PitchInputValue = AxisValue.Y * PitchSpeed;
+	float PitchSpeed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ?
+		InputData->PitchSpeed * InputData->PitchSpeedMultiplier :
+		InputData->PitchSpeed;
     
-	float YawSpeed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ? InputData->RotationSpeed * InputData->RotationSpeedMultiplier : InputData->RotationSpeed;
-	float YawInputValue = AxisValue.X * YawSpeed;
+	float YawSpeed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ?
+		InputData->RotationSpeed * InputData->RotationSpeedMultiplier :
+		InputData->RotationSpeed;
+
+	// Final Output
+	float PitchInputValue = MouseDirection.Y * PitchSpeed / 10;;
+	float YawInputValue = MouseDirection.X * YawSpeed / 10;
 	
 	TargetRotation = FRotator(
 	// We need to clamp the Pitch to stay within reason
@@ -462,6 +771,63 @@ void AEDU_USER_CameraPawn::Input_FreeLook(const FInputActionValue& InputActionVa
 	// Do not roll.
 		0.f
 	);
+}
+
+void AEDU_USER_CameraPawn::MouseDrag()
+{ // FLOW_LOG
+	UpdateMouseDirection();
+	
+	// Scale the speed of we zoom out or in.
+	MouseDragSpeed = InputData->MouseDragSpeed * SpringArmComponent->TargetArmLength * 0.001f;
+	
+	if(MouseDirection.X != 0 || MouseDirection.Y != 0)
+	{ FLOW_LOG
+		// Note that we don't interpolate, we go exactly and immediately to location. It is the same in both SupCom and CoH.
+		// Also note that X and Y are inverted here, likely because of the pawns positioning (I don't know for sure though // Draug )
+		TargetLocation -= CameraAnchor->GetRelativeRotation().RotateVector(FVector(MouseDirection.Y * MouseDragSpeed, MouseDirection.X * MouseDragSpeed, 0.0f)); // Z should be 0.
+		GetTerrainPosition(TargetLocation, LastValidLocation);
+		SetActorLocation(TargetLocation);
+	}
+}
+
+//------------------------------------------------------------------------------
+// Functionality: Input Functions
+//------------------------------------------------------------------------------
+
+void AEDU_USER_CameraPawn::Input_KeyMove(const FInputActionValue& InputActionValue)
+{ FLOW_LOG
+	// Keyboard movement (aka WASD)
+	if(SpringArmComponent != nullptr && InputData != nullptr && !bMouseDrag)
+	{
+		// Check Input
+		const FVector2d Direction = InputActionValue.Get<FVector2d>();
+		const float Speed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ?
+			InputData->KeyMoveSpeed * InputData->KeyMoveSpeedMultiplier * SpringArmComponent->TargetArmLength * 0.0002f:
+			InputData->KeyMoveSpeed * SpringArmComponent->TargetArmLength * 0.0002f;
+		
+		MoveCameraAnchor(Direction, Speed);
+	}
+}
+
+void AEDU_USER_CameraPawn::Input_KeyRotate(const FInputActionValue& InputActionValue)
+{ FLOW_LOG
+	if(InputData != nullptr && ensure(InputActionValue.GetValueType() == EInputActionValueType::Axis1D))
+	{
+		// Interpolation for smooth movement
+		EnableInterpRotation();
+		
+		float YawInputValue = InputActionValue.Get<float>();
+		if(bInvertedYaw){ YawInputValue *= -1; }
+		
+		TargetRotation = FRotator(
+		// Don't Change the already existing Pitch
+			TargetRotation.Pitch,
+		// Add the new Yaw Input to the already existing Yaw, 360 is no issue.
+			TargetRotation.Yaw + YawInputValue * InputData->RotationSpeed,
+		// Do not roll.
+			0.f
+		);
+	}
 }
 
 void AEDU_USER_CameraPawn::Input_Zoom(const FInputActionValue& InputActionValue)
@@ -475,7 +841,7 @@ void AEDU_USER_CameraPawn::Input_Zoom(const FInputActionValue& InputActionValue)
 	float Direction = InputActionValue.Get<float>();
 
 	// Invert direction if player prefers it.
-	if(!bInvertedZoom){ Direction *= -1; }
+	if(!bInvertedZoom) { Direction *= -1; }
 	
 	// Modify speed depending on button combo.
 	ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ?
@@ -486,44 +852,101 @@ void AEDU_USER_CameraPawn::Input_Zoom(const FInputActionValue& InputActionValue)
 	TargetZoom = FMath::Clamp(TargetZoom + (ZoomDistance * Direction), InputData->MinZoom, InputData->MaxZoom);
 	
 	if(Direction < 0.f)
-	{ // Zoom in
+	{ // FLOW_LOG_WARNING("Zooming in")
 		bZoomIn = true;
 		bZoomOut = false;
-		FLOW_LOG_WARNING("Zooming in")
 
 		// Check if we should focus on Mouse while zooming in
-		if (bZoomFocus)
+		if (bZoomFocusOn)
 		{
-			CameraTraceMove();
+			CameraTrace();
+			InterpTimer = 0.f;
+			bZoomFocusFinished = false;
+
+			// If we are fully Zoomed in, and the player still tries to zoom in, it's likely that the
+			// player has a low pitch and is actually trying to move the CameraAnchor to another location.
+			if(SpringArmComponent->TargetArmLength < TargetZoom * 1.1f)
+			{
+				EnableInterpMovement(0.5f);
+			}
 		}
 	}
 	else
-	{ // Zoom out
+	{ // FLOW_LOG_WARNING("Zooming out")
 		bZoomIn = false;
 		bZoomOut = true;
-		FLOW_LOG_WARNING("Zooming out")
 	}
-	
-	/*----------------------------------------------- Deprecated -------------------------------------------------------
-	// This version only Zooms in and out, it doesn't track.
-	 
-	if(InputData != nullptr && ensure(InputActionValue.GetValueType() == EInputActionValueType::Axis1D))
-	{
-		// Modifier Key
-		float Speed = ModifierKey == EEDU_USER_InputModifierKey::Mod_1 ? InputData->ZoomSpeed * InputData->ZoomSpeedMultiplier : InputData->ZoomSpeed;
-		if(bInvertedZoom){ Speed *= -1; }
+}
 
-		TargetZoom = FMath::Clamp(TargetZoom + InputActionValue.Get<float>() * Speed, InputData->MinZoom, InputData->MaxZoom);
-	}
-	------------------------------------------------------------------------------------------------------------------*/
+void AEDU_USER_CameraPawn::Input_MouseDrag_Pressed(const FInputActionValue& InputActionValue)
+{ FLOW_LOG // Make sure the Input Action in the Editor is a bool.
+	if(bFreeLook || bAutoScroll) {return; }
+	
+	bMouseDrag = true;
+	DisableMouseEvents();
+}
+
+void AEDU_USER_CameraPawn::Input_MouseDrag_Released(const FInputActionValue& InputActionValue)
+{ FLOW_LOG // Make sure the Input Action in the Editor is a bool.
+	if(bFreeLook || bAutoScroll) {return; }
+	
+	bMouseDrag = false;
+	EnableMouseEvents();
+}
+
+void AEDU_USER_CameraPawn::Input_FreeLook_Pressed(const FInputActionValue& InputActionValue)
+{ FLOW_LOG // Make sure the Input Action in the Editor is a bool.
+	if(bMouseDrag || bAutoScroll) {return; }
+	
+	bFreeLook = true;
+	bAutoPitchDisengaged = true;
+
+	DisableMouseEvents();
+}
+
+void AEDU_USER_CameraPawn::Input_FreeLook_Released(const FInputActionValue& InputActionValue)
+{ FLOW_LOG // Make sure the Input Action in the Editor is a bool.
+	if(bMouseDrag || bAutoScroll) {return; }
+	
+	bFreeLook = false;
+
+	EnableMouseEvents();
+	EnableInterpRotation();
+}
+
+void AEDU_USER_CameraPawn::Input_AutoScroll_Pressed(const FInputActionValue& InputActionValue)
+{ FLOW_LOG // Make sure the Input Action in the Editor is a bool.
+	if(bFreeLook || bMouseDrag) {return; }
+	
+	bAutoScroll = true;
+	DisableMouseEvents();
+}
+
+void AEDU_USER_CameraPawn::Input_AutoScroll_Released(const FInputActionValue& InputActionValue)
+{ FLOW_LOG // Make sure the Input Action in the Editor is a bool.
+	if(bFreeLook || bMouseDrag) {return; }
+
+	// Reset Direction
+	ScrollDirection.X = 0;
+	ScrollDirection.Y = 0;
+	
+	bAutoScroll = false;
+	EnableMouseEvents();
 }
 
 //---------------------------------------------------------------------------
-// Functionality: Mouse Input functions
+// Functionality: Mouse Button Input functions
 //---------------------------------------------------------------------------
 
 void AEDU_USER_CameraPawn::Input_Mouse_1_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
+	LocalController->GetMousePosition(MousePos.X, MousePos.Y);
+	LocalHUD->DrawSelectionMarquee(MousePos);
+}
+
+void AEDU_USER_CameraPawn::Input_Mouse_1_Triggered(const FInputActionValue& InputActionValue)
+{// Called on Triggered, so it's a tick.
+	
 }
 
 void AEDU_USER_CameraPawn::Input_Mouse_1_Released(const FInputActionValue& InputActionValue)
@@ -534,54 +957,29 @@ void AEDU_USER_CameraPawn::Input_Mouse_2_Pressed(const FInputActionValue& InputA
 { FLOW_LOG
 }
 
+void AEDU_USER_CameraPawn::Input_Mouse_2_Triggered(const FInputActionValue& InputActionValue)
+{ FLOW_LOG
+}
+
 void AEDU_USER_CameraPawn::Input_Mouse_2_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 }
 
-void AEDU_USER_CameraPawn::Input_CameraTraceMove(const FInputActionValue& InputActionValue)
+void AEDU_USER_CameraPawn::Input_Mouse_3_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
-	CameraTraceMove();
+}
+
+void AEDU_USER_CameraPawn::Input_Mouse_3_Triggered(const FInputActionValue& InputActionValue)
+{ FLOW_LOG
+}
+
+void AEDU_USER_CameraPawn::Input_Mouse_3_Released(const FInputActionValue& InputActionValue)
+{ FLOW_LOG
 }
 
 //------------------------------------------------------------------------------
 // Functionality: Modifier Keys
 //------------------------------------------------------------------------------
-
-void AEDU_USER_CameraPawn::Input_FreeLook_Pressed(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-	bFreeLook = true;
-	
-	if(APlayerController* PlayerController = Cast<APlayerController>(GetController()))
-	{
-		if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			// In FInputModeGameOnly, the Enhanced input system will always track the mouse.
-			FInputModeGameOnly InputMode;
-			PlayerController->SetInputMode(InputMode);
-			PlayerController->bShowMouseCursor = false; 
-			PlayerController->bEnableClickEvents = false; 
-			PlayerController->bEnableMouseOverEvents = false;
-		}
-	}
-
-}
-
-void AEDU_USER_CameraPawn::Input_FreeLook_Released(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-	bFreeLook = false;
-	if(APlayerController* PlayerController = Cast<APlayerController>(GetController()))
-	{
-		if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			// In FInputModeGameAndUI, the Enhanced input system will only track the mouse while a mouse button is clicked.
-			FInputModeGameAndUI InputMode;
-			LocalController->SetInputMode(InputMode);
-			LocalController->bShowMouseCursor = true; 
-			LocalController->bEnableClickEvents = true; 
-			LocalController->bEnableMouseOverEvents = true;
-		}
-	}
-}
 
 void AEDU_USER_CameraPawn::Input_Mod_1_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG

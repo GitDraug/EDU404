@@ -44,3 +44,10 @@ enum class EEDU_USER_InputModifierKey : uint8
 	Mod_234,
 };
 
+UENUM()
+enum class EEDU_USER_AutoScroll : uint8
+{
+	Toggle,
+	Hold
+};
+

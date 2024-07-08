@@ -40,7 +40,8 @@ public class EDU_USER : ModuleRules
 				"SlateCore",
 				"UMG",
 				"EnhancedInput",
-				"CommonUI"
+				"CommonUI",
+				"Landscape"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

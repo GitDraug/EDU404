@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "EnhancedInputComponent.h"
 #include "InputAction.h"
 #include "Engine/DataAsset.h"
 #include "EDU_USER_CameraPawnInputDataAsset.generated.h"
@@ -45,10 +44,16 @@ public:
 	// Input Control Parameters: Edge Scroll
 	//------------------------------------------------------------------------------
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Edge Scroll")
+	float ScreenEdgeArea = 5.f;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Edge Scroll")
 	float EdgeScrollSpeed = 10.f;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Edge Scroll")
 	float EdgeScrollSpeedMultiplier = 2.f;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Edge Scroll")
+	float MouseDragSpeed = 1.f;
 	
 	//------------------------------------------------------------------------------
 	// Input Control Parameters: Rotation
@@ -96,19 +101,23 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Zoom")
 	float ZoomDistanceMultiplier = 2.f;
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Zoom")
+	float ZoomTraceLength = 100000.f;
+
 	//------------------------------------------------------------------------------
 	// Input Control Parameters: Interpolation Speed
 	//------------------------------------------------------------------------------
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Interpolation Speed")
-	float MoveInterSpeed = 10.f ;
+	float MoveInterSpeed = 5.f ;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Interpolation Speed")
-	float ZoomInterpSpeed = 10.f ;
-
+	float ZoomInterpSpeed = 5.f ;
+	
+	// Mouse input can accelerate speed, so rotation and pitch interp should always be higher than the speed, preferably x2 or more.
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Interpolation Speed")
 	float RotationInterpSpeed = 10.f ;
-
+	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Interpolation Speed")
 	float PitchInterpSpeed = 10.f ;
 	
@@ -144,25 +153,16 @@ public:
 	UInputAction* KeyMove; // Moving the camera with keyboard.
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Movement")
-	UInputAction* CameraTraceMove; // Moving the camera with Mouse.
-		
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Movement")
-	UInputAction* MouseMove_Pressed; // Moving the camera with Mouse.
+	UInputAction* MouseDragToggle; // Enables Mouse Drag
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Movement")
-	UInputAction* MouseMove_Released; // Moving the camera with Mouse.
+	UInputAction* AutoScrollToggle; // Enables Mouse Drag
 	
 	//------------------------------------------------------------------------------
 	// FreeLook
 	//------------------------------------------------------------------------------
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|FreeLook")
-	UInputAction* FreeLook_Pressed;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|FreeLook")
-	UInputAction* FreeLook_Released;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|FreeLook")
-	UInputAction* FreeLook;
+	UInputAction* FreeLookToggle;
 
 	//------------------------------------------------------------------------------
 	// Zoom
@@ -177,47 +177,27 @@ public:
 	// Mouse Input
 	//------------------------------------------------------------------------------
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Left Mouse button")
-	UInputAction* Mouse_1_Pressed;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Left Mouse button")
-	UInputAction* Mouse_1_Released;
+	UInputAction* Mouse_1;
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Right Mouse button")
-	UInputAction* Mouse_2_Pressed;
-	
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Right Mouse button")
-	UInputAction* Mouse_2_Released;
+	UInputAction* Mouse_2;
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Middle Mouse button")
-	UInputAction* Mouse_3_Pressed;
+	UInputAction* Mouse_3;
 	
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Middle Mouse button")
-	UInputAction* Mouse_3_Released;
 
 	//------------------------------------------------------------------------------
 	// Modifier Keys
 	//------------------------------------------------------------------------------
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_1_Pressed;
+	UInputAction* Mod_1;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_1_Released;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_2_Pressed;
-	
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_2_Released;
+	UInputAction* Mod_2;
 		
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_3_Pressed;
+	UInputAction* Mod_3;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_3_Released;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_4_Pressed;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_4_Released;
+	UInputAction* Mod_4;
 };
