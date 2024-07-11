@@ -11,62 +11,78 @@
 AEDU_USER_HUD::AEDU_USER_HUD(const FObjectInitializer& ObjectInitializer) : Super (ObjectInitializer)
 { FLOW_LOG
 	
-	SetSelectionMarqueeFrameColor(FrameRed,	FrameGreen, FrameBlue, FrameOpacity);
-	SetSelectionMarqueeBGColor(BG_Red, BG_Green, BG_Blue, BG_Opacity);
 }
 
 //------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------
-void AEDU_USER_HUD::DrawSelectionMarquee(const FVector2d& InitialPoint)
-{ FLOW_LOG
-	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Cyan, FString::Printf(TEXT("Drawing")));
+void AEDU_USER_HUD::DrawHUD()
+{ FLOW_LOG_TICK // Needed?
+	// Super::DrawHUD();
+	if(!bSelectionTriggered) { return; }
 
-	// TODO : InitialPoint can't be set on tick, it will be overwritten every frame.
-	GetOwningPlayerController()->GetMousePosition(MousePos.X, MousePos.Y);
+	// Update CurrentMousePosition.
+	GetOwningPlayerController()->GetMousePosition(CurrentMousePos.X, CurrentMousePos.Y);
 
 	DrawRect( // Draw Background
 		BGColor,
-		InitialPoint.X,
-		InitialPoint.Y,
-		CurrentPoint.X - InitialPoint.X,
-		CurrentPoint.Y - InitialPoint.Y);
+		InitialMousePos.X,
+		InitialMousePos.Y,
+		CurrentMousePos.X - InitialMousePos.X,
+		CurrentMousePos.Y - InitialMousePos.Y);
 
 	DrawLine( // Top frame color
-		InitialPoint.X, InitialPoint.Y,
-		CurrentPoint.X, InitialPoint.Y,
+		InitialMousePos.X, InitialMousePos.Y,
+		CurrentMousePos.X, InitialMousePos.Y,
 		FrameColor,
 		FrameThickness);
 
 	DrawLine( // Bottom frame color
-		InitialPoint.X, CurrentPoint.Y,
-		CurrentPoint.X, CurrentPoint.Y,
+		InitialMousePos.X, CurrentMousePos.Y,
+		CurrentMousePos.X, CurrentMousePos.Y,
 		FrameColor,
 		FrameThickness);
 
 	DrawLine( // Left frame color
-		InitialPoint.X, InitialPoint.Y,
-		InitialPoint.X, CurrentPoint.Y,
+		InitialMousePos.X, InitialMousePos.Y,
+		InitialMousePos.X, CurrentMousePos.Y,
 		FrameColor,
 		FrameThickness);
 
 	DrawLine( // Right frame color
-		CurrentPoint.X, InitialPoint.Y,
-		CurrentPoint.X, CurrentPoint.Y,
+		CurrentMousePos.X, InitialMousePos.Y,
+		CurrentMousePos.X, CurrentMousePos.Y,
 		FrameColor,
 		FrameThickness);
-	
 }
 
-void AEDU_USER_HUD::SetSelectionMarqueeFrameColor(float Red, float Green, float Blue, float Opacity)
-{
+void AEDU_USER_HUD::DrawSelectionMarquee(const FVector2d& MousePosition)
+{ FLOW_LOG
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Cyan, FString::Printf(TEXT("Drawing")));
+	InitialMousePos = MousePosition;
+	bSelectionTriggered = true;
+}
 
+void AEDU_USER_HUD::StopDrawingSelectionMarquee()
+{ FLOW_LOG
+	bSelectionTriggered = false;
+}
+
+//------------------------------------------------------------------------------
+// Get/Set
+//------------------------------------------------------------------------------
+void AEDU_USER_HUD::SetSelectionMarqueeFrameColor(float Red, float Green, float Blue, float Opacity)
+{ FLOW_LOG
+	BGColor.R = Red;
+	BGColor.G = Green;
+	BGColor.B = Blue;
+	BGColor.A = Opacity;
 }
 
 void AEDU_USER_HUD::SetSelectionMarqueeBGColor(float Red, float Green, float Blue, float Opacity)
-{
-	FrameColor.R = FrameRed;
-	FrameColor.G = FrameGreen;
-	FrameColor.B = FrameBlue;
-	FrameColor.A = FrameOpacity;
+{ FLOW_LOG
+	FrameColor.R = Red;
+	FrameColor.G = Green;
+	FrameColor.B = Blue;
+	FrameColor.A = Opacity;
 }

@@ -45,9 +45,11 @@ enum class EEDU_USER_InputModifierKey : uint8
 };
 
 UENUM()
-enum class EEDU_USER_AutoScroll : uint8
+enum class EEDU_USER_CurrentPawn : uint8
 {
-	Toggle,
-	Hold
+	None,
+	Camera,
+	Character,
 };
+
 

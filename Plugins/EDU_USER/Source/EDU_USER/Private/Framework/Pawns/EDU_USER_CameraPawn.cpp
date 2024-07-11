@@ -1,17 +1,23 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-
+//------------------------------------------------------------------------------
+// This Plugin
+//------------------------------------------------------------------------------
 #include "Framework/Pawns/EDU_USER_CameraPawn.h"
 
-#include "Camera/CameraComponent.h"
-#include "EnhancedInputComponent.h"
-#include "EnhancedInputSubsystems.h"
 #include "Framework/Data/EDU_USER_DataTypes.h"
 #include "Framework/Data/EDU_USER_CameraPawnInputDataAsset.h"
 #include "Framework/Data/FlowLog.h"
-#include "GameFramework/PlayerController.h"
-#include "GameFramework/SpringArmComponent.h"
+
+#include "Framework/Player/EDU_USER_PlayerController.h"
+
 #include "UI/HUD/EDU_USER_HUD.h"
+//------------------------------------------------------------------------------
+// Unreal Modules
+//------------------------------------------------------------------------------
+#include "Camera/CameraComponent.h"
+#include "EnhancedInputComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 
 //------------------------------------------------------------------------------
 // Construction & Init
@@ -29,230 +35,51 @@ AEDU_USER_CameraPawn::AEDU_USER_CameraPawn(const FObjectInitializer& ObjectIniti
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComponent"));
 	SpringArmComponent->SetupAttachment(RootComponent);
 	SpringArmComponent->TargetArmLength = 2000.f;
-	SpringArmComponent->bDoCollisionTest = true;
+	SpringArmComponent->bDoCollisionTest = false;
 
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComponent"));
-	CameraComponent->SetupAttachment(SpringArmComponent);
-
-	// Initiate Controller
-	if(LocalController == nullptr){	LocalController = Cast<APlayerController>(GetController()); }
-}
-
-//------------------------------------------------------------------------------
-// Input Setup
-//------------------------------------------------------------------------------
-
-void AEDU_USER_CameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{ FLOW_LOG
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	if(IsLocallyControlled())
-	{
-		/*------------------------------------------------------------------------------
-		  InputDataAsset is NOT a PrimaryDataAsset, so it's ALWAYS loaded. With such
-		  a small Data Asset, it really doesn't matter, but we need to ensure it's
-		  not null to avoid crashes.
-
-		  With PrimaryDataAssets, you always need to call the Asset Manager to load
-		  them manually.
-
-		  This needs to be assigned in the BP, so it's initialized, else it will be null.
-		------------------------------------------------------------------------------*/
-		if(InputDataAsset == nullptr) { FLOW_LOG_ERROR("InputDataAsset is null, make sure it is set on the CameraPawn.") return; }
-
-		InputData = Cast<UEDU_USER_CameraPawnInputDataAsset>(InputDataAsset);
-		if(InputData == nullptr) { FLOW_LOG_ERROR("Something is wrong with the InputData, check the Cast.") return; }
-
-		// Make sure the pointer is of the correct type, because why not.
-		if(UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
-		{
-			/*------------------------------------------------------------------------------
-				<!> Input Action Names are in InputData!
-				Here Bind a BP Input Action (with Trigger condition),
-				to C++ class and its C++ function.
-
-				ETriggerEvent::Triggered == Fires while the key is down.
-				ETriggerEvent::Started == Fires once only, on pressed.
-				ETriggerEvent::Completed == Fires once only, on released.
-			------------------------------------------------------------------------------*/
-			
-			EnhancedInputComponent->BindAction(InputData->KeyMove, ETriggerEvent::Triggered, this, &ThisClass::Input_KeyMove);
-			EnhancedInputComponent->BindAction(InputData->KeyRotate, ETriggerEvent::Triggered, this, &ThisClass::Input_KeyRotate);
-		
-			EnhancedInputComponent->BindAction(InputData->Zoom, ETriggerEvent::Triggered, this, &ThisClass::Input_Zoom);
-			
-			EnhancedInputComponent->BindAction(InputData->FreeLookToggle, ETriggerEvent::Started, this, &ThisClass::Input_FreeLook_Pressed);
-			EnhancedInputComponent->BindAction(InputData->FreeLookToggle, ETriggerEvent::Completed, this, &ThisClass::Input_FreeLook_Released);
-			
-			EnhancedInputComponent->BindAction(InputData->MouseDragToggle, ETriggerEvent::Started, this, &ThisClass::Input_MouseDrag_Pressed);
-			EnhancedInputComponent->BindAction(InputData->MouseDragToggle, ETriggerEvent::Completed, this, &ThisClass::Input_MouseDrag_Released);
-
-			EnhancedInputComponent->BindAction(InputData->AutoScrollToggle, ETriggerEvent::Started, this, &ThisClass::Input_AutoScroll_Pressed);
-			EnhancedInputComponent->BindAction(InputData->AutoScrollToggle, ETriggerEvent::Completed, this, &ThisClass::Input_AutoScroll_Released);
-			
-			//------------------------------------------------------------------------------
-			// Modifier Keys
-			//------------------------------------------------------------------------------
-			EnhancedInputComponent->BindAction(InputData->Mod_1, ETriggerEvent::Started, this, &ThisClass::Input_Mod_1_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mod_1, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_1_Released);
-			
-			EnhancedInputComponent->BindAction(InputData->Mod_2, ETriggerEvent::Started, this, &ThisClass::Input_Mod_2_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mod_2, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_2_Released);
-
-			EnhancedInputComponent->BindAction(InputData->Mod_3, ETriggerEvent::Started, this, &ThisClass::Input_Mod_3_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mod_3, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_3_Released);
-			
-			EnhancedInputComponent->BindAction(InputData->Mod_4, ETriggerEvent::Started, this, &ThisClass::Input_Mod_4_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mod_4, ETriggerEvent::Completed, this, &ThisClass::Input_Mod_4_Released);
-
-			//------------------------------------------------------------------------------
-			// Mouse Input functions; Multifunctional, so best to use simple names.
-			//------------------------------------------------------------------------------
-			EnhancedInputComponent->BindAction(InputData->Mouse_1, ETriggerEvent::Started, this, &ThisClass::Input_Mouse_1_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mouse_1, ETriggerEvent::Triggered, this, &ThisClass::Input_Mouse_1_Triggered);
-			EnhancedInputComponent->BindAction(InputData->Mouse_1, ETriggerEvent::Completed, this, &ThisClass::Input_Mouse_1_Pressed);
-			
-			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Started, this, &ThisClass::Input_Mouse_2_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mouse_1, ETriggerEvent::Triggered, this, &ThisClass::Input_Mouse_1_Triggered);
-			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Completed, this, &ThisClass::Input_Mouse_2_Released);
-
-			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Started, this, &ThisClass::Input_Mouse_3_Pressed);
-			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Triggered, this, &ThisClass::Input_Mouse_3_Triggered);
-			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Completed, this, &ThisClass::Input_Mouse_3_Released);
-			
-			// Finish Setup
-			SetPlayerInputMode();
-			SetInputDefault();
-			SetPawnControlDefaults();
-		}
-	}		
-}
-
-void AEDU_USER_CameraPawn::SetInputDefault(const bool bEnabled) const
-{ FLOW_LOG
-	if (InputData != nullptr && InputData->MappingContext_Default)
-	{
-		if(bEnabled)
-		{
-			AddInputMappingContext(InputData->MappingContext_Default, InputData->MapPriority_Default);
-		}
-		else
-		{
-			RemoveInputMappingContext(InputData->MappingContext_Default);
-		}
-	}
-
-	//------------------------------------------------------------------------------
-	// Input Data DevCheck for easy debugging
-	//------------------------------------------------------------------------------
-	// KeyMove
-	FLOW_LOG_IF( (InputData->KeyMoveSpeed ==0 ),			FLOW_LOG_ERROR("InputData->MoveSpeed is 0, the pawn might not be able to Move"))
-	FLOW_LOG_IF( (InputData->KeyMoveSpeedMultiplier ==0 ),	FLOW_LOG_ERROR("InputData->KeyMoveSpeedMultiplier is 0, the pawn might not be able to Move"))
-
-	// Mouse Move Scroll
-	FLOW_LOG_IF( (InputData->MouseMoveSpeed ==0 ),			FLOW_LOG_ERROR("InputData->MouseMoveSpeed is 0, the pawn might not be able to Move"))
-	FLOW_LOG_IF( (InputData->MouseMoveSpeedMultiplier ==0 ),FLOW_LOG_ERROR("InputData->MouseMoveSpeedMultiplier is 0, the pawn might not be able to Move"))
-
-	// Edge Scroll
-	FLOW_LOG_IF( (InputData->EdgeScrollSpeed ==0 ),			FLOW_LOG_ERROR("InputData->StartPitch is 0, the pawn might not be able to Move"))
-	FLOW_LOG_IF( (InputData->EdgeScrollSpeedMultiplier ==0 ),FLOW_LOG_ERROR("InputData->EdgeScrollSpeedMultiplier is 0, the pawn might not be able to Move"))
-
-	// Rotation
-	FLOW_LOG_IF( (InputData->RotationSpeed ==0 ),				FLOW_LOG_ERROR("InputData->RotateSpeed is 0, the pawn might not be able to Move"))
-	FLOW_LOG_IF( (InputData->RotationSpeedMultiplier ==0 ),	FLOW_LOG_ERROR("InputData->KeyMoveSpeedMultiplier is 0, the pawn might not be able to Move"))
-}
-
-void AEDU_USER_CameraPawn::SetPlayerInputMode()
-{ FLOW_LOG
-	if(LocalController == nullptr){	LocalController = Cast<APlayerController>(GetController()); }
-	
-	if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalController->GetLocalPlayer()))
-	{ // Reset InputMappings, in case anything remains from the previous level or menu or whatnot.
-		InputSubsystem->ClearAllMappings();
-
-		FInputModeGameAndUI InputMode; // Settings container
-		InputMode.SetHideCursorDuringCapture(false); // Whether to hide the cursor during temporary mouse capture caused by a mouse down
-		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock); // Don't lock to window. It's better to put this in a menu.
-
-		LocalController->SetInputMode(InputMode);
-		LocalController->SetShowMouseCursor(true);
-	}
-}
-
-void AEDU_USER_CameraPawn::AddInputMappingContext(const UInputMappingContext* InputMappingContext, const int32 MappingPriority) const
-{ FLOW_LOG
-	if(InputMappingContext == nullptr) { FLOW_LOG_ERROR("InputMappingContext == nullptr") return; }
-	
-	// To use functions on the APlayerController, we need to guarantee the pointer is of the right type, that's why we cast.
-	if(const APlayerController* PlayerController = Cast<APlayerController>(GetController()))
-	{
-		if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			if(!InputSubsystem->HasMappingContext(InputMappingContext))
-			{
-				InputSubsystem->AddMappingContext(InputMappingContext, MappingPriority);
-			}
-		}
-	}
-}
-
-void AEDU_USER_CameraPawn::RemoveInputMappingContext(const UInputMappingContext* InputMappingContext) const
-{ FLOW_LOG
-	if(const APlayerController* PlayerController = Cast<APlayerController>(GetController()))
-	{
-		if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			InputSubsystem->RemoveMappingContext(InputMappingContext);
-		}
-	}
-}
-
-void AEDU_USER_CameraPawn::SetPawnControlDefaults()
-{ FLOW_LOG
-	if(IsLocallyControlled() && SpringArmComponent != nullptr && InputData != nullptr)
-	{
-		// Trace Default
-		TargetLocation = GetActorLocation();
-		
-		// Zoom Default
-		TargetZoom = InputData->StartZoom;
-		ZoomTraceLength = InputData->ZoomTraceLength;
-		SpringArmComponent->TargetArmLength = TargetZoom;
-
-		// Rotation Default.
-		const FRotator Rotation = SpringArmComponent->GetRelativeRotation();
-		TargetRotation = FRotator(Rotation.Pitch - InputData->StartPitch, Rotation.Yaw, 0.f);
-
-		// EdgeScroll Settings
-		ScreenEdgeArea = InputData->ScreenEdgeArea;
-		EdgeScrollSpeed = InputData->EdgeScrollSpeed;
-
-		// Make sure the Camera doesn't hit itself when tracing.
-		CameraTraceCollisionParams.AddIgnoredActor(this); // Ignore the player
-				
-		// All set, start ticking!
-		bIsInitialized = true;
-
-		// Interpolation for smooth camera setup
-		EnableInterpRotation();
-	}
+	CameraComponent->SetupAttachment(SpringArmComponent);	
 }
 
 //------------------------------------------------------------------------------
 // Object Lifetime Management
 //------------------------------------------------------------------------------
-void AEDU_USER_CameraPawn::PossessedBy(AController* NewController)
-{ FLOW_LOG
-	Super::PossessedBy(NewController);
-}
+void AEDU_USER_CameraPawn::PawnClientRestart()
+{ FLOW_LOG // Called on the owning client of a player-controlled Pawn when it is restarted.
+	Super::PawnClientRestart();
 
-void AEDU_USER_CameraPawn::BeginPlay()
-{ FLOW_LOG
-	Super::BeginPlay();
+	/*-------------------------- Initiate HUD -------------------------------------
+	  We need to initiate the HUD to call functions on it, but it's not enough to
+	  get any HUD, we need ot make sure it is of the right type, so we can
+	  guarantee that the functions we call actually exist on the hud.
+
+	  The HUD is owned by the PlayerController, so we get the controller and Cast
+	  it to the type of Controller we want,to save in the pointer we have prepared.
+	  After that, we use the custom controller to do the same thing with the HUD.
+
+	  It's best to this in PawnClientRestart(), because we know that a controller
+	  exists by then, and the Pawn might be Spawned mid-game.
+	------------------------------------------------------------------------------*/
+	if(!LocalController) { LocalController = GetController<AEDU_USER_PlayerController>(); }
+	
+	// Restart if the cast failed.
+	if(!LocalController) { PawnClientRestart(); return; }
+	FLOW_LOG_ONSCREEN_MESSAGE("LocalController Saved Successfully.")
+
+	// Now that we have the right type of the controller, we can use it to get the right HUD.
+	LocalHUD = LocalController->GetHUD<AEDU_USER_HUD>();
+	FLOW_LOG_IF(LocalHUD, FLOW_LOG_ONSCREEN_MESSAGE("LocalHUD Casted and Saved Successfully."))
+	
+	// We've already set the InputComponent using Super::PawnClientRestart(), now we need to switch the InputContext.
+	LocalController->SetMappingContext(EEDU_USER_CurrentPawn::Camera);
+	LocalController->UpdateMappingContext();
+
+	// Finish Setup
+	SetPawnDefaults();
 }
 
 void AEDU_USER_CameraPawn::Tick(float DeltaTime)
-{
+{ FLOW_LOG_TICK
 	Super::Tick(DeltaTime);
 
 	// Debug Messages
@@ -295,7 +122,7 @@ void AEDU_USER_CameraPawn::Tick(float DeltaTime)
 
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.X %f"), MouseDirection.X));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.Y %f"), MouseDirection.Y));
-	-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+	//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 	
 	// Conditional Tick
 	if(SpringArmComponent == nullptr || InputData == nullptr || !bIsInitialized) { return; }
@@ -365,14 +192,146 @@ void AEDU_USER_CameraPawn::UnPossessed()
 { FLOW_LOG
 
 	// This might be an overkill, but if another controller posses this pawn, then we want to make sure it is reset.
-	bMod_1 = false;
-	bMod_2 = false;
-	bMod_3 = false;
-	bMod_4 = false;
 	bFreeLook = false;
 	bMouseDrag = false;
 	
 	Super::UnPossessed();
+}
+
+//------------------------------------------------------------------------------
+// Input Setup
+//------------------------------------------------------------------------------
+
+void AEDU_USER_CameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{ FLOW_LOG
+	/*------------------------------------------------------------------------------
+	PlayerInputComponent is responsible for binding InputMappings to function,
+	the InputMappingContext is set in the PlayerController.
+	------------------------------------------------------------------------------*/
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	if(IsLocallyControlled())
+	{
+		/*------------------------------------------------------------------------------
+		  InputDataAsset is NOT a PrimaryDataAsset, so it's ALWAYS loaded. With such
+		  a small Data Asset, it really doesn't matter, but we need to ensure it's
+		  not null to avoid crashes.
+
+		  With PrimaryDataAssets, you always need to call the Asset Manager to load
+		  them manually.
+
+		  This needs to be assigned in the BP, so it's initialized, else it will be null.
+		------------------------------------------------------------------------------*/
+		if(ImportedInputDataAsset == nullptr) { FLOW_LOG_ERROR("InputDataAsset is null, make sure it is set on the BluePrint CameraPawn.") return; }
+
+		InputData = Cast<UEDU_USER_CameraPawnInputDataAsset>(ImportedInputDataAsset);
+		if(InputData == nullptr) { FLOW_LOG_ERROR("Something is wrong with the InputData, check the Cast.") return; }
+
+		// Make sure the pointer is of the correct type, because why not.
+		if(UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
+		{
+			/*------------------------------------------------------------------------------
+				<!> Input Action Names are in InputData!
+				Here Bind a BP Input Action (with Trigger condition),
+				to C++ class and its C++ function.
+
+				ETriggerEvent::Triggered == Fires while the key is down.
+				ETriggerEvent::Started == Fires once only, on pressed.
+				ETriggerEvent::Completed == Fires once only, on released.
+			------------------------------------------------------------------------------*/
+			
+			EnhancedInputComponent->BindAction(InputData->KeyMove, ETriggerEvent::Triggered, this, &ThisClass::Input_KeyMove);
+			EnhancedInputComponent->BindAction(InputData->KeyRotate, ETriggerEvent::Triggered, this, &ThisClass::Input_KeyRotate);
+		
+			EnhancedInputComponent->BindAction(InputData->Zoom, ETriggerEvent::Triggered, this, &ThisClass::Input_Zoom);
+			
+			EnhancedInputComponent->BindAction(InputData->FreeLookToggle, ETriggerEvent::Started, this, &ThisClass::Input_FreeLook_Pressed);
+			EnhancedInputComponent->BindAction(InputData->FreeLookToggle, ETriggerEvent::Completed, this, &ThisClass::Input_FreeLook_Released);
+			
+			EnhancedInputComponent->BindAction(InputData->MouseDragToggle, ETriggerEvent::Started, this, &ThisClass::Input_MouseDrag_Pressed);
+			EnhancedInputComponent->BindAction(InputData->MouseDragToggle, ETriggerEvent::Completed, this, &ThisClass::Input_MouseDrag_Released);
+
+			EnhancedInputComponent->BindAction(InputData->AutoScrollToggle, ETriggerEvent::Started, this, &ThisClass::Input_AutoScroll_Pressed);
+			EnhancedInputComponent->BindAction(InputData->AutoScrollToggle, ETriggerEvent::Completed, this, &ThisClass::Input_AutoScroll_Released);
+						
+			//------------------------------------------------------------------------------
+			// Mouse Input functions; Multifunctional, so best to use simple names.
+			//------------------------------------------------------------------------------
+			EnhancedInputComponent->BindAction(InputData->Mouse_1, ETriggerEvent::Started, this, &ThisClass::Input_Mouse_1_Pressed);
+			EnhancedInputComponent->BindAction(InputData->Mouse_1, ETriggerEvent::Completed, this, &ThisClass::Input_Mouse_1_Released);
+			
+			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Started, this, &ThisClass::Input_Mouse_2_Pressed);
+			EnhancedInputComponent->BindAction(InputData->Mouse_2, ETriggerEvent::Completed, this, &ThisClass::Input_Mouse_2_Released);
+
+			EnhancedInputComponent->BindAction(InputData->Mouse_3, ETriggerEvent::Started, this, &ThisClass::Input_Mouse_3_Pressed);
+			EnhancedInputComponent->BindAction(InputData->Mouse_3, ETriggerEvent::Completed, this, &ThisClass::Input_Mouse_3_Released);
+		}
+	}		
+}
+
+void AEDU_USER_CameraPawn::SetPlayerInputMode()
+{ FLOW_LOG
+	if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalController->GetInputSubsystem())
+	{ // Reset InputMappings, in case anything remains from the previous level or menu or whatnot.
+		// InputSubsystem->ClearAllMappings();
+
+		FInputModeGameAndUI InputMode; // Settings container
+		InputMode.SetHideCursorDuringCapture(false); // Whether to hide the cursor during temporary mouse capture caused by a mouse down
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock); // Don't lock to window. It's better to put this in a menu.
+
+		LocalController->SetInputMode(InputMode);
+		LocalController->SetShowMouseCursor(true);
+	}
+}
+
+void AEDU_USER_CameraPawn::SetPawnDefaults()
+{ FLOW_LOG
+	if(IsLocallyControlled() && SpringArmComponent != nullptr && InputData != nullptr)
+	{
+		// Trace Default
+		TargetLocation = GetActorLocation();
+		
+		// Zoom Default
+		TargetZoom = InputData->StartZoom;
+		ZoomTraceLength = InputData->ZoomTraceLength;
+		SpringArmComponent->TargetArmLength = TargetZoom;
+
+		// Rotation Default.
+		const FRotator Rotation = SpringArmComponent->GetRelativeRotation();
+		TargetRotation = FRotator(Rotation.Pitch - InputData->StartPitch, Rotation.Yaw, 0.f);
+
+		// EdgeScroll Settings
+		ScreenEdgeArea = InputData->ScreenEdgeArea;
+		EdgeScrollSpeed = InputData->EdgeScrollSpeed;
+
+		// Make sure the Camera doesn't hit itself when tracing.
+		CameraTraceCollisionParams.AddIgnoredActor(this); // Ignore the player
+				
+		// All set, start ticking!
+		bIsInitialized = true;
+
+		// Interpolation for smooth camera setup
+		EnableInterpRotation();
+
+		//------------------------------------------------------------------------------
+		// Input Data DevCheck for easy debugging
+		//------------------------------------------------------------------------------
+		// KeyMove
+		FLOW_LOG_IF( (InputData->KeyMoveSpeed ==0 ),			FLOW_LOG_ERROR("InputData->MoveSpeed is 0, the pawn might not be able to Move"))
+		FLOW_LOG_IF( (InputData->KeyMoveSpeedMultiplier ==0 ),	FLOW_LOG_ERROR("InputData->KeyMoveSpeedMultiplier is 0, the pawn might not be able to Move"))
+
+		// Mouse Move Scroll
+		FLOW_LOG_IF( (InputData->MouseMoveSpeed ==0 ),			FLOW_LOG_ERROR("InputData->MouseMoveSpeed is 0, the pawn might not be able to Move"))
+		FLOW_LOG_IF( (InputData->MouseMoveSpeedMultiplier ==0 ),FLOW_LOG_ERROR("InputData->MouseMoveSpeedMultiplier is 0, the pawn might not be able to Move"))
+
+		// Edge Scroll
+		FLOW_LOG_IF( (InputData->EdgeScrollSpeed ==0 ),			FLOW_LOG_ERROR("InputData->StartPitch is 0, the pawn might not be able to Move"))
+		FLOW_LOG_IF( (InputData->EdgeScrollSpeedMultiplier ==0 ),FLOW_LOG_ERROR("InputData->EdgeScrollSpeedMultiplier is 0, the pawn might not be able to Move"))
+
+		// Rotation
+		FLOW_LOG_IF( (InputData->RotationSpeed ==0 ),			FLOW_LOG_ERROR("InputData->RotateSpeed is 0, the pawn might not be able to Move"))
+		FLOW_LOG_IF( (InputData->RotationSpeedMultiplier ==0 ),	FLOW_LOG_ERROR("InputData->KeyMoveSpeedMultiplier is 0, the pawn might not be able to Move"))
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -383,12 +342,8 @@ void AEDU_USER_CameraPawn::ResetCamera()
 { FLOW_LOG
 	EnableInterpRotation();
 	EnableInterpMovement();
-	
-	// TargetLocation.X = 0.f;
-	// TargetLocation.Y = 0.f;
 
 	TargetRotation.Pitch = AutoPitchMin;
-	// TargetRotation.Yaw = 0.f;
 
 	if(bAutoPitch)
 	{
@@ -463,7 +418,7 @@ void AEDU_USER_CameraPawn::CameraTrace()
 				TraceEnd.Z =- SpringArmComponent->TargetArmLength - Distance;
 			}
 
-			/*///-------------------------------------------------------------------------------------
+			//*///-------------------------------------------------------------------------------------
 			DrawDebugSphere(GetWorld(), TraceStart, 1000.0f, 12, FColor::Red, false, 10.0f, 0, 25.0f);
 			DrawDebugSphere(GetWorld(), TraceEnd, 1000.0f, 12, FColor::Blue, false, 10.0f, 0, 25.0f);
 			
@@ -486,7 +441,7 @@ void AEDU_USER_CameraPawn::CameraTrace()
 					
 					LastValidLocation = CameraTraceResult.ImpactPoint;
 					
-					/*///-------------------------------------------------------------------------------------
+					//*///-------------------------------------------------------------------------------------
 					DrawDebugSphere(GetWorld(), HalfWayPoint, 1000.0f, 12, FColor::Red, false, 10.0f, 0, 40.0f);
 					DrawDebugSphere(GetWorld(), TargetLocation, 1000.0f, 12, FColor::Blue, false, 10.0f, 0, 20.0f);
 					DrawDebugSphere(GetWorld(), LastValidLocation, 1000.0f, 12, FColor::Green, false, 10.0f, 0, 5.0f);
@@ -498,7 +453,7 @@ void AEDU_USER_CameraPawn::CameraTrace()
 }
 
 void AEDU_USER_CameraPawn::MoveCameraAnchor(const FVector2d& Direction, const float& Speed)
-{ FLOW_LOG
+{ FLOW_LOG_TICK
 	// We're rotating CameraAnchor not the SpringArm
 	TargetLocation += CameraAnchor->GetRelativeRotation().RotateVector(FVector(Direction.X * Speed, Direction.Y * Speed, 0.0f)); // Z should be 0.
 	GetTerrainPosition(TargetLocation, LastValidLocation);
@@ -507,7 +462,7 @@ void AEDU_USER_CameraPawn::MoveCameraAnchor(const FVector2d& Direction, const fl
 }
 
 void AEDU_USER_CameraPawn::GetTerrainPosition(FVector& TargetPos, FVector& LastValidPos) const
-{ FLOW_LOG
+{ FLOW_LOG_TICK
 	// New trace
 	FHitResult GroundTrace;
 	FCollisionQueryParams CollisionParameters;
@@ -519,10 +474,10 @@ void AEDU_USER_CameraPawn::GetTerrainPosition(FVector& TargetPos, FVector& LastV
 		TraceEnd.Z -= SpringArmComponent->TargetArmLength + 50'00.f;
 	
 		// Draw the debug sphere
-		// DrawDebugSphere(GetWorld(), TargetPos,  50.0f, 12, FColor::Green, false, 1.0f, 0, 2.0f);
+		 DrawDebugSphere(GetWorld(), TargetPos,  50.0f, 12, FColor::Green, false, 1.0f, 0, 2.0f);
 
 		// Draw the debug line
-		// DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Green, false, 1.0f, 0, 2.0f);
+		 DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Green, false, 1.0f, 0, 2.0f);
 	
 	if(GetWorld())
 	{ // RTS_TRACE_CHANNEL_TERRAIN is defined in EDU_USER_StaticGameData 
@@ -544,7 +499,7 @@ void AEDU_USER_CameraPawn::GetTerrainPosition(FVector& TargetPos, FVector& LastV
 }
 
 void AEDU_USER_CameraPawn::UpdateCameraRotation(const float DeltaTime) const
-{ FLOW_LOG
+{ FLOW_LOG_TICK
 	// Rotate the Camera to target pitch
 	// Observe the SpringArmComponent; it acts like a barrel, on a turret, only going up and down. It doesn't affect the rotation or the pitch of the CameraAnchor. 
 	FRotator InterpPitch = FMath::RInterpTo(SpringArmComponent->GetRelativeRotation(), TargetRotation, DeltaTime, InputData->PitchInterpSpeed);
@@ -560,7 +515,7 @@ void AEDU_USER_CameraPawn::UpdateCameraRotation(const float DeltaTime) const
 }
 
 void AEDU_USER_CameraPawn::UpdateCameraLocation(const float DeltaTime)
-{ FLOW_LOG
+{ FLOW_LOG_TICK
 	// Move Pawn to target location
 	// Interpolate vector from Current to Target, scaled by distance to Target, so it has a strong start speed and ease out.
 	FVector InterpLocation = FMath::VInterpTo(GetActorLocation(), TargetLocation, DeltaTime, InputData->MoveInterSpeed);
@@ -682,7 +637,7 @@ void AEDU_USER_CameraPawn::AutoPitch(const float DeltaTime)
 //------------------------------------------------------------------------------
 
 void AEDU_USER_CameraPawn::EdgeScroll()
-{ // Tick Function
+{ FLOW_LOG_TICK
 	// Don't EdgeScroll if the mouse is outside the window.
 	if(!LocalController->GetMousePosition(MousePos.X, MousePos.Y)) {return; };
 	LocalController->GetViewportSize(ScreenSize.X, ScreenSize.Y);
@@ -747,7 +702,7 @@ void AEDU_USER_CameraPawn::AutoScroll()
 }
 
 void AEDU_USER_CameraPawn::FreeLook()
-{ // FLOW_LOG
+{ FLOW_LOG_TICK
 	UpdateMouseDirection();
     
 	// Modifier Keys
@@ -774,7 +729,7 @@ void AEDU_USER_CameraPawn::FreeLook()
 }
 
 void AEDU_USER_CameraPawn::MouseDrag()
-{ // FLOW_LOG
+{ FLOW_LOG_TICK
 	UpdateMouseDirection();
 	
 	// Scale the speed of we zoom out or in.
@@ -940,24 +895,19 @@ void AEDU_USER_CameraPawn::Input_AutoScroll_Released(const FInputActionValue& In
 
 void AEDU_USER_CameraPawn::Input_Mouse_1_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
+
+	// Save the current Mouse Position in the Hud, in case we want to draw a SelectionMarquee.
 	LocalController->GetMousePosition(MousePos.X, MousePos.Y);
 	LocalHUD->DrawSelectionMarquee(MousePos);
 }
 
-void AEDU_USER_CameraPawn::Input_Mouse_1_Triggered(const FInputActionValue& InputActionValue)
-{// Called on Triggered, so it's a tick.
-	
-}
-
 void AEDU_USER_CameraPawn::Input_Mouse_1_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
+	LocalHUD->StopDrawingSelectionMarquee();
+	// Add Units in rectangle to TempUnitArray
 }
 
 void AEDU_USER_CameraPawn::Input_Mouse_2_Pressed(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-}
-
-void AEDU_USER_CameraPawn::Input_Mouse_2_Triggered(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 }
 
@@ -969,138 +919,6 @@ void AEDU_USER_CameraPawn::Input_Mouse_3_Pressed(const FInputActionValue& InputA
 { FLOW_LOG
 }
 
-void AEDU_USER_CameraPawn::Input_Mouse_3_Triggered(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-}
-
 void AEDU_USER_CameraPawn::Input_Mouse_3_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 }
-
-//------------------------------------------------------------------------------
-// Functionality: Modifier Keys
-//------------------------------------------------------------------------------
-
-void AEDU_USER_CameraPawn::Input_Mod_1_Pressed(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-	bMod_1 = true;
-	SetModifierKey();
-}
-
-void AEDU_USER_CameraPawn::Input_Mod_1_Released(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-	bMod_1 = false;
-	SetModifierKey();
-}
-
-void AEDU_USER_CameraPawn::Input_Mod_2_Pressed(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-	bMod_2 = true;
-	SetModifierKey();
-}
-
-void AEDU_USER_CameraPawn::Input_Mod_2_Released(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-	bMod_2 = false;
-	SetModifierKey();
-}
-
-void AEDU_USER_CameraPawn::Input_Mod_3_Pressed(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-	bMod_3 = true;
-	SetModifierKey();
-}
-
-void AEDU_USER_CameraPawn::Input_Mod_3_Released(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-	bMod_3 = false;
-	SetModifierKey();
-}
-
-void AEDU_USER_CameraPawn::Input_Mod_4_Pressed(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-	bMod_4 = true;
-	SetModifierKey();
-}
-
-void AEDU_USER_CameraPawn::Input_Mod_4_Released(const FInputActionValue& InputActionValue)
-{ FLOW_LOG
-	bMod_4 = false;
-	SetModifierKey();
-}
-
-void AEDU_USER_CameraPawn::SetModifierKey()
-{ FLOW_LOG
-	/*--------------------------------------------------------------------------------
-	  Note that this evaluation will start over every time a new key is pressed,
-	  I tried using a switch, but switches can't be used with structs unless
-	  overloaded, and it's not worth the headache.
-
-	  I don't like nested ifs, but since this is only called on key press,
-	  it's really not that performance heavy.  // Draug
-	--------------------------------------------------------------------------------*/
-
-	using enum EEDU_USER_InputModifierKey; //  for readability
-	
-	//----------------------------------------------------------
-	// Shift
-	//-----------------------------------------------------------
-	if (bMod_1)
-	{
-		ModifierKey = Mod_1;
-		FLOW_LOG_WARNING("Mod Key = 1")
-	
-		if (bMod_1 && bMod_2){ ModifierKey = Mod_12; FLOW_LOG_WARNING("Mod Key = 12")	}
-		if (bMod_1 && bMod_3){ ModifierKey = Mod_13; FLOW_LOG_WARNING("Mod Key = 13") }
-		if (bMod_1 && bMod_4){ ModifierKey = Mod_14; FLOW_LOG_WARNING("Mod Key = 14") }
-
-		if (bMod_1 && bMod_2 && bMod_3){ ModifierKey = Mod_123; FLOW_LOG_WARNING("Mod Key = 123") }
-		if (bMod_1 && bMod_2 && bMod_4){ ModifierKey = Mod_124; FLOW_LOG_WARNING("Mod Key = 124") }
-		if (bMod_1 && bMod_3 && bMod_4){ ModifierKey = Mod_134;	FLOW_LOG_WARNING("Mod Key = 134") }
-
-		return;
-	}
-
-	//-----------------------------------------------------------
-	// Ctrl
-	//-----------------------------------------------------------
-	if (bMod_2)
-	{
-		ModifierKey = Mod_2; FLOW_LOG_WARNING("ModifierKey = 2")
-		
-		if (bMod_2 && bMod_3){ ModifierKey = Mod_23; FLOW_LOG_WARNING("Mod Key = 23") }
-		if (bMod_2 && bMod_4){ ModifierKey = Mod_24; FLOW_LOG_WARNING("Mod Key = 24") }
-		
-		if (bMod_2 && bMod_3 && bMod_4){ ModifierKey = Mod_234; FLOW_LOG_WARNING("Mod Key = 234") }
-		return;
-	}
-
-	//-----------------------------------------------------------
-	// Alt
-	//-----------------------------------------------------------
-	if (bMod_3)
-	{
-		ModifierKey = Mod_3; FLOW_LOG_WARNING("Mod Key = 3")
-		
-		if (bMod_3 && bMod_4){ ModifierKey = Mod_34; FLOW_LOG_WARNING("Mod Key = 34")	}
-		return;
-	}
-	
-	//-----------------------------------------------------------
-	// Space
-	//-----------------------------------------------------------
-	if (bMod_4)
-	{
-		ModifierKey = Mod_4; FLOW_LOG_WARNING("Mod Key = 4")
-		return;
-	}
-
-	//-----------------------------------------------------------
-	// No Modifier
-	//-----------------------------------------------------------
-	ModifierKey = NoModifier;
-	FLOW_LOG_WARNING("Mod Key = NoModifier")
-	
-	// end using enum EEDU_USER_InputModifierKey;
-}
-

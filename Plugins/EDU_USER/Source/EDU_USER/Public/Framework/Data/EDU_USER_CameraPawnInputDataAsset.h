@@ -122,7 +122,7 @@ public:
 	float PitchInterpSpeed = 10.f ;
 	
 //------------------------------------------------------------------------------
-// Default Player Mapping Context
+// Mapping Actions
 //------------------------------------------------------------------------------
 public:
 	/*--------------------------- Enhanced Input -----------------------------
@@ -130,7 +130,9 @@ public:
 	  EnhancedInputComponent->BindAction.
 	  
 	  The Mapping Context (in the Editor) binds BP Input Actions to
-	  keyboard keys.
+	  keyboard keys. In this plugin, all mapping contexts (keybindings) are
+	  set in the Controller. Pawns instead manage their own, internal
+	  functionality, but not keybindings.
 
 	  The BP Input Actions in the editor are actually stand-alone. They act as
 	  extensions of the triggers in the C++ file that binds C++ functionality
@@ -140,13 +142,8 @@ public:
 	  a DataAsset in the editor inherited from this DataAsset. The DataAsset
 	  is the most important, without it C++ can't connect to BP.
 	--------------------------------------------------------------------------*/
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Default")
-	UInputMappingContext* MappingContext_Default;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Default")
-	int32 MapPriority_Default;
-
-	//------------------------------------------------------------------------------
+	
+	//-----------------------------------------------------------------------------
 	// Movement
 	//------------------------------------------------------------------------------
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Movement")
@@ -184,20 +181,4 @@ public:
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Middle Mouse button")
 	UInputAction* Mouse_3;
-	
-
-	//------------------------------------------------------------------------------
-	// Modifier Keys
-	//------------------------------------------------------------------------------
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_1;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_2;
-		
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_3;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Mapping Context|Modifier Keys")
-	UInputAction* Mod_4;
 };

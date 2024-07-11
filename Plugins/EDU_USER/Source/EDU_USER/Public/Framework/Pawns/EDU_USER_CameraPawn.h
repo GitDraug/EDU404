@@ -4,13 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "InputActionValue.h"
-#include "Framework/Data/FlowLog.h"
 #include "Framework/Data/EDU_USER_DataTypes.h"
 #include "GameFramework/Pawn.h"
 #include "EDU_USER_CameraPawn.generated.h"
 
 struct FInputActionValue;
-class UInputMappingContext;
 
 class USceneComponent;
 class UStaticMeshComponent;
@@ -28,8 +26,10 @@ class AEDU_USER_HUD;
   Pawn is the base class of all actors that can be possessed by players or AI.
   They are the physical representations of players and creatures in a level.
 
-  // TODO: Make sure the Trace Channel is correct.
+  <!> TODO: Make sure the Trace Channel is correct.
 
+  <!> Make sure the camera does not do collision tests in the BP, it will end up
+  below ground all the time if you do.
 ------------------------------------------------------------------------------*/
 UCLASS(Abstract)
 class EDU_USER_API AEDU_USER_CameraPawn : public APawn
@@ -43,60 +43,57 @@ public:
 	AEDU_USER_CameraPawn(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 //------------------------------------------------------------------------------
-// Input Setup
-//------------------------------------------------------------------------------
-	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-	// MappingContext && Mapping Priority
-	virtual void SetInputDefault(const bool bEnabled = true) const;
-
-	// Input mode is UI&Game etc.
-	virtual void SetPlayerInputMode();
-
-	// Used to initialize the variables in the DataAsset
-	virtual void SetPawnControlDefaults();
-
-protected:
-	// We can Add and remove various contexts depending on game
-	virtual void AddInputMappingContext(const UInputMappingContext* InputMappingContext, const int32 MappingPriority) const;
-	virtual void RemoveInputMappingContext(const UInputMappingContext* InputMappingContext) const;
-	
-//------------------------------------------------------------------------------
 // Object Lifetime Management
 //------------------------------------------------------------------------------
 protected:
-	virtual void PossessedBy(AController* NewController) override;
+	/*------------------------------------------------------------------------------
+	  PawnClientRestart() is called on the owning client of a player-controlled
+	  Pawn when it is restarted. It will immediately set up the camera, and then
+	  call CreatePlayerInputComponent() followed by SetupPlayerInputComponent.
+	------------------------------------------------------------------------------*/
+	virtual void PawnClientRestart() override;
 	
-	virtual void BeginPlay() override;
+	// virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	
 	virtual void UnPossessed() override;
+	
+//------------------------------------------------------------------------------
+// Input Setup
+//------------------------------------------------------------------------------
+	// Called upon possession by a PlayerController, to bind functionality to input.
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+	// Input mode is UI && Game etc.
+	virtual void SetPlayerInputMode();
+
+	// Used to initialize the variables in the DataAsset
+	virtual void SetPawnDefaults();
+	
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
 private:
 	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
-	USceneComponent* CameraAnchor;
+	TObjectPtr<USceneComponent> CameraAnchor;
 
 	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
-	USpringArmComponent* SpringArmComponent;
+	TObjectPtr<USpringArmComponent> SpringArmComponent;
 	
 	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
-	UCameraComponent* CameraComponent;
-
-	FLOW_LOG_TICK_VARIABLE_FOR_DEBUG
+	TObjectPtr<UCameraComponent> CameraComponent;
 
 protected:
 	// Holds Input Data with keys and functions, we need to set it in the BP.
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "EDU_USER Settings")
-	UDataAsset* InputDataAsset;
+	TObjectPtr<UDataAsset> ImportedInputDataAsset;
 
+private:
 	UPROPERTY()
   	TObjectPtr<UEDU_USER_CameraPawnInputDataAsset> InputData;
 
 	UPROPERTY()
-	TObjectPtr<APlayerController> LocalController;
+	TObjectPtr<AEDU_USER_PlayerController> LocalController;
 	
 	UPROPERTY()
 	TObjectPtr<AEDU_USER_HUD> LocalHUD;
@@ -122,7 +119,9 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Rotation")
 	float AutoPitchMax = -35.f; // In the settings menu, can be turned off.
-	
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Movement")
+	float MouseDragSpeed = 2.f;
 	
 private:
 	// Ready to tick?
@@ -140,9 +139,6 @@ private:
 
 	// A YX struct to save the Mouse movement Input, using APlayerController->GetInputMouseDelta();
 	FVector2d MouseDirection {0.f, 0.f};
-	
-	// A YX struct to save the InputComponent axis for our Mouse
-	FVector2d MouseAxis;
 	
 	// We need to store the Screen Size for Camera Edge Scrolling
 	FIntVector2 ScreenSize;
@@ -190,9 +186,6 @@ private:
 	UPROPERTY()
 	float ZoomTraceLength; // Distance to trace for ground.
 	
-	UPROPERTY()
-	float MouseDragSpeed = 2.f; // Distance to trace for ground.
-
 	// The length SpringArmComponent->TargetArmLength is targeting.
 	float TargetZoom;
 	
@@ -206,18 +199,8 @@ private:
 	bool bZoomFocusFinished = true;
 	
 	//------------------------------------------------------------------------------
-	// States for the modifier Keys 
-	// ------------------------------------------------------------------------------
-	bool bMod_1 = false;
-	bool bMod_2 = false;
-	bool bMod_3 = false;
-	bool bMod_4 = false;
-
-	/*--------------------------------------------------------------------------------
-	  Note that the bools are for this class only. The active key, or active combo
-	  is set in EEDU_USER_InputModifierKey. This means that other classes only need
-	  to keep track of the enum state, instead if 4 bool.
-	--------------------------------------------------------------------------------*/
+	// States for the modifier Keys
+	//------------------------------------------------------------------------------
 	UPROPERTY()
 	EEDU_USER_InputModifierKey ModifierKey;
 	
@@ -229,10 +212,10 @@ protected:
 	void UpdateCameraRotation(const float DeltaTime) const;
 	void UpdateCameraLocation(const float DeltaTime);
 	void UpdateCameraZoom(const float DeltaTime);
+	void AutoPitch(const float DeltaTime); // Pitches the camera depending on zoom level (optional in settings)
 	
 	// Utility
 	void MoveCameraAnchor(const FVector2d& Direction, const float& Speed);
-	void AutoPitch(const float DeltaTime); // Pitches the camera depending on zoom level.
 	void CameraTrace();
 	void UpdateMouseDirection();
 	void ResetCamera();
@@ -251,8 +234,15 @@ protected:
 	void EnableInterpRotation();
 	void EnableInterpMovement(float Time = 1.f);
 	
-	// Traces the ground to check we're inside the allowed area.
-	// This function originally resided in the controller, thus we passed them by ref.
+	/*---------------------------------------------------------------------------
+	  GetTerrainPosition Traces the ground to check we're inside the allowed area.
+	  In order for it to work correctly, we need a Trace Channel defined in
+	  USER_StaticGameData, that way we can restrict camera movement without
+	  using blocking collision meshes.
+
+	  Trivia: GetTerrainPosition() originally resided in the controller,
+	  thus we passed arguments by ref.
+	---------------------------------------------------------------------------*/
 	void GetTerrainPosition(FVector& TargetPos, FVector& LastValidPos) const;
 	
 	/*---------------------------------------------------------------------------
@@ -280,6 +270,7 @@ protected:
 
 	  The Input Action Key can all be the same though.
 	---------------------------------------------------------------------------*/
+	
 	virtual void Input_MouseDrag_Pressed	(const FInputActionValue& InputActionValue);
 	virtual void Input_MouseDrag_Released	(const FInputActionValue& InputActionValue);
 
@@ -290,37 +281,15 @@ protected:
 	virtual void Input_AutoScroll_Released	(const FInputActionValue& InputActionValue);
 
 	//---------------------------------------------------------------------------
-	// Mouse Input functions // TODO: check if _Triggered is superfluous
+	// Mouse Input functions
 	//---------------------------------------------------------------------------
 	virtual void Input_Mouse_1_Pressed	(const FInputActionValue& InputActionValue);
-	virtual void Input_Mouse_1_Triggered(const FInputActionValue& InputActionValue);
 	virtual void Input_Mouse_1_Released	(const FInputActionValue& InputActionValue);
 	
 	virtual void Input_Mouse_2_Pressed	(const FInputActionValue& InputActionValue);
-	virtual void Input_Mouse_2_Triggered(const FInputActionValue& InputActionValue);
 	virtual void Input_Mouse_2_Released	(const FInputActionValue& InputActionValue);
 
 	virtual void Input_Mouse_3_Pressed	(const FInputActionValue& InputActionValue);
-	virtual void Input_Mouse_3_Triggered(const FInputActionValue& InputActionValue);
 	virtual void Input_Mouse_3_Released	(const FInputActionValue& InputActionValue);
-	
-	//---------------------------------------------------------------------------
-	// Modifier Input functions
-	//---------------------------------------------------------------------------	
-	virtual void Input_Mod_1_Pressed		(const FInputActionValue& InputActionValue);
-	virtual void Input_Mod_1_Released		(const FInputActionValue& InputActionValue);
-	
-	virtual void Input_Mod_2_Pressed		(const FInputActionValue& InputActionValue);
-	virtual void Input_Mod_2_Released		(const FInputActionValue& InputActionValue);
-	
-	virtual void Input_Mod_3_Pressed		(const FInputActionValue& InputActionValue);
-	virtual void Input_Mod_3_Released		(const FInputActionValue& InputActionValue);
-
-	virtual void Input_Mod_4_Pressed		(const FInputActionValue& InputActionValue);
-	virtual void Input_Mod_4_Released		(const FInputActionValue& InputActionValue);
-
-	// Update EEDU_USER_InputModifierKey
-	virtual void SetModifierKey();
-	
 };
 

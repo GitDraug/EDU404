@@ -6,12 +6,16 @@
 #include "GameFramework/HUD.h"
 #include "EDU_USER_HUD.generated.h"
 
+class AEDU_USER_PlayerController;
+
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
 --------------------------------------------------------------------------------
   Base class of the heads-up display. This has a canvas and a debug canvas on
   which primitives can be drawn.
 
+  Note that the HUD is created by the PlayerController, it can't exist without
+  one.
 ------------------------------------------------------------------------------*/
 UCLASS(Abstract)
 class EDU_USER_API AEDU_USER_HUD : public AHUD
@@ -23,6 +27,14 @@ class EDU_USER_API AEDU_USER_HUD : public AHUD
 //------------------------------------------------------------------------------
 public:
 	AEDU_USER_HUD(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	
+
+//------------------------------------------------------------------------------
+// Get/Set
+//------------------------------------------------------------------------------
+public:	
+	void SetSelectionMarqueeFrameColor(float Red, float Green, float Blue, float Opacity);
+	void SetSelectionMarqueeBGColor(float Red, float Green, float Blue, float Opacity);
 	
 //------------------------------------------------------------------------------
 // Components
@@ -67,18 +79,21 @@ private:
 
 	// To keep track of the Mouse
 	FVector2d MousePos;
-	FVector2d InitialPoint;
-	FVector2d CurrentPoint;
+	FVector2d InitialMousePos;
+	FVector2d CurrentMousePos;
+
+	// Selection Marquee
+	bool bSelectionTriggered = false;
+
+	// Custom PlayerController
+	UPROPERTY()
+	TObjectPtr<AEDU_USER_PlayerController> LocalController;
 
 //------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------
 public:
-	// Get/Set
-	FORCEINLINE TObjectPtr<AEDU_USER_HUD> GetHUD() { return this; }
-	
-	void SetSelectionMarqueeFrameColor(float Red = 1.f, float Green = 1.f, float Blue = 1.f, float Opacity = 1.f);
-	void SetSelectionMarqueeBGColor(float Red = 1.f, float Green = 1.f, float Blue = 1.f, float Opacity = 1.f);
-
-	void DrawSelectionMarquee(const FVector2d& InitialPoint);
+	virtual void DrawHUD() override; // Tick for HUDs
+	void DrawSelectionMarquee(const FVector2d& MousePosition);
+	void StopDrawingSelectionMarquee();
 };

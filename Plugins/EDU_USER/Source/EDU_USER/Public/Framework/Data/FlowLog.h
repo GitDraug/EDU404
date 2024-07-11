@@ -9,12 +9,15 @@
 
 //Declare External Log Category (Category name, Default verbosity, Maximum verbosity level)
 DECLARE_LOG_CATEGORY_EXTERN(FlowLog_PLAYER, Display, All);
+DECLARE_LOG_CATEGORY_EXTERN(FlowLog_PLAYER_TICK, Display, All);
 
 //Define External Log Category
 inline DEFINE_LOG_CATEGORY(FlowLog_PLAYER);
+inline DEFINE_LOG_CATEGORY(FlowLog_PLAYER_TICK);
 
 // Define Internal Macro for this .h file
 #define FLOWLOG_CATEGORY FlowLog_PLAYER
+#define FLOWLOG_TICK_CATEGORY FlowLog_PLAYER_TICK
 
 //-------------------------------------------------------
 // Flow Log MACRO, only executed in debug mode.
@@ -35,16 +38,14 @@ inline DEFINE_LOG_CATEGORY(FlowLog_PLAYER);
 //-------------------------------------------------------
 // Used to track when a Tick starts
 //-------------------------------------------------------
-  #define FLOW_LOG_TICK if(!bFlowLogTick) UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("%s::%hs - First tick initiated"), *GetClass()->GetName(), __FUNCTION__); bFlowLogTick = 1; // this one needs the FLOW_LOG_TICK_VARIABLE_FOR_DEBUG macro in the .h file to work.
- // #define FLOW_LOG UE_LOG(FlowLog, Display, TEXT("%s::%hs"), *GetPathNameSafe(GetClass()), __FUNCTION__); // this one-track filePath in the editor content explorer
+  #define FLOW_LOG_TICK UE_LOG(FLOWLOG_TICK_CATEGORY, Display, TEXT("%s::%hs"), *GetClass()->GetName(), __FUNCTION__);
 
-
-  // Bool variable for any .h File, used by FLOW_LOG_TICK macro. It makes sure the Flowlog only outputs at tick initiation, not every frame.
-  #define FLOW_LOG_TICK_VARIABLE_FOR_DEBUG bool bFlowLogTick; 
 //-------------------------------------------------------
 // OnScreen Messages, when running live
 //-------------------------------------------------------
-  #define FLOW_LOG_ONSCREEN(Key, Color) if(GEngine) { GEngine->AddOnScreenDebugMessage(Key, 60.f, FColor::Color, FString::Printf(TEXT("%s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__)); };
+  #define FLOW_LOG_ONSCREEN_MESSAGE(Message) if(GEngine) { GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Green, FString::Printf(TEXT("%s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message))); };
+  #define FLOW_LOG_ONSCREEN_WARNING(Message) if(GEngine) { GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Yellow, FString::Printf(TEXT("%s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message))); };
+  #define FLOW_LOG_ONSCREEN_ERROR(Message) if(GEngine) { GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Red, FString::Printf(TEXT("%s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message))); };
   #define FLOW_ONSCREEN_TOSTRING(Key, Color, Message) if(GEngine) { GEngine->AddOnScreenDebugMessage(Key, 60.f, FColor::Color, FString::Printf(TEXT("%s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, *Message.ToString() )); };
 
 //-------------------------------------------------------
