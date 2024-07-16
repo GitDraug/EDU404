@@ -41,7 +41,7 @@ public class EDU_USER : ModuleRules
 				"UMG",
 				"EnhancedInput",
 				"CommonUI",
-				"Landscape"
+				"EDU_UNIT",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

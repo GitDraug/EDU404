@@ -38,7 +38,9 @@ public class EDU_CORE : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"UMG",
 				"EnhancedInput",
+				"CommonUI",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

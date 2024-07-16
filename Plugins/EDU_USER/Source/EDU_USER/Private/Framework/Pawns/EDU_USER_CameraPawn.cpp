@@ -72,7 +72,6 @@ void AEDU_USER_CameraPawn::PawnClientRestart()
 	
 	// We've already set the InputComponent using Super::PawnClientRestart(), now we need to switch the InputContext.
 	LocalController->SetMappingContext(EEDU_USER_CurrentPawn::Camera);
-	LocalController->UpdateMappingContext();
 
 	// Finish Setup
 	SetPawnDefaults();
@@ -271,17 +270,15 @@ void AEDU_USER_CameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 void AEDU_USER_CameraPawn::SetPlayerInputMode()
 { FLOW_LOG
-	if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalController->GetInputSubsystem())
-	{ // Reset InputMappings, in case anything remains from the previous level or menu or whatnot.
-		// InputSubsystem->ClearAllMappings();
-
+	//if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalController->GetInputSubsystem())
+	//{
 		FInputModeGameAndUI InputMode; // Settings container
 		InputMode.SetHideCursorDuringCapture(false); // Whether to hide the cursor during temporary mouse capture caused by a mouse down
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock); // Don't lock to window. It's better to put this in a menu.
 
 		LocalController->SetInputMode(InputMode);
 		LocalController->SetShowMouseCursor(true);
-	}
+	//}
 }
 
 void AEDU_USER_CameraPawn::SetPawnDefaults()

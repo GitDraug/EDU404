@@ -3,7 +3,7 @@
 
 #include "Framework/Managers/GameModes/EDU_CORE_GameMode_TitleScreen.h"
 #include "EnhancedInputSubsystems.h"
-#include "Framework/Data/FlowLog.h"
+#include "Framework/Data/FLOWLOG/FLOWLOG_MANAGERS.h"
 
 //------------------------------------------------------------------------------
 // Initialization & Object lifetime management

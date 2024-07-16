@@ -4,9 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "EDU_CORE_GameMode_Skirmish.generated.h"
+#include "EDU_CORE_GameMode.generated.h"
 
 class URTS_CORE_GameDataAsset;
+class AEDU_CORE_TickingEntity;
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
 --------------------------------------------------------------------------------
@@ -24,7 +25,7 @@ class URTS_CORE_GameDataAsset;
   DefaultGameMode entry set in the game's Project Settings.
 ------------------------------------------------------------------------------*/
 UCLASS(Abstract)
-class EDU_CORE_API AEDU_CORE_GameMode_Skirmish : public AGameModeBase
+class EDU_CORE_API AEDU_CORE_GameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 
@@ -32,6 +33,36 @@ class EDU_CORE_API AEDU_CORE_GameMode_Skirmish : public AGameModeBase
 // Initialization & Object lifetime management
 //------------------------------------------------------------------------------	
 public:
-	AEDU_CORE_GameMode_Skirmish(const FObjectInitializer& ObjectInitializer);
+	AEDU_CORE_GameMode(const FObjectInitializer& ObjectInitializer);
+
+	virtual void Tick(float DeltaTime) override;
 	
+	
+//------------------------------------------------------------------------------
+// Public API
+//------------------------------------------------------------------------------
+public:
+	void AddToTickingEntityArray(AEDU_CORE_TickingEntity* TickingEntity);
+	
+//------------------------------------------------------------------------------
+// Components
+//------------------------------------------------------------------------------
+	UPROPERTY()
+	TArray<AEDU_CORE_TickingEntity*> TickingEntityArray;
+	
+	// Index that tracks which entity in TickingEntityArray is being processed.
+	int32 CurrentEntity = 0;
+
+	// EntityBatch: Represents the number of entities to process in each tick.
+	// The loop will run EntityBatch times, allowing for controlled batch
+	// processing of entities.
+	int32 EntityBatch = 100;
+	
+	bool Iticked = false;
+
+//------------------------------------------------------------------------------
+// Functionality
+//------------------------------------------------------------------------------
+	// void ParallelTick(AEDU_CORE_TickingEntity* Entity) const;
+
 };

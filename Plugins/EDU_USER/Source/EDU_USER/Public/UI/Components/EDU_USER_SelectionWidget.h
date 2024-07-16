@@ -24,7 +24,7 @@ TODO:
 ------------------------------------------------------------------------------*/
 
 USTRUCT(BlueprintType)
-struct FSelectionOption // Used by the Array of SelectionOptions
+struct F_EDU_USER_SelectionOption // Used by the Array of SelectionOptions
 {
   GENERATED_BODY()
 
@@ -58,7 +58,7 @@ public:
 protected:
   // Array of SelectionOptions
   UPROPERTY(EditAnywhere, BlueprintReadOnly)
-  TArray<FSelectionOption> OptionsArray;
+  TArray<F_EDU_USER_SelectionOption> OptionsArray;
 
   // SmartPointer to Widget TextBlock
   UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
@@ -106,7 +106,7 @@ public:
   void ClearCurrentSelection();
   
   // Add selection
-  void AddOption(const FSelectionOption& inOption);
+  void AddOption(const F_EDU_USER_SelectionOption& inOption);
 
   // Set current selection
   void SetCurrentSelection(int InIndex);

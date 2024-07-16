@@ -24,7 +24,7 @@ class UButton;
 // Enum for Framerate settings
 //------------------------------------------------------------------------------	
 UENUM(BlueprintType)
-enum class EFramerate: uint8
+enum class EDU_USER_EFramerate: uint8
 {
 	FPS_30 UMETA(DisplayName = "30 FPS"),
 	FPS_45 UMETA(DisplayName = "45 FPS"),
@@ -39,7 +39,7 @@ enum class EFramerate: uint8
 // Enum for Quality settings
 //------------------------------------------------------------------------------	
 UENUM(BlueprintType)
-enum class EQuality: uint8
+enum class EDU_USER_EQuality: uint8
 {
 	Lowest	UMETA(DisplayName = "Lowest"),
 	Low		UMETA(DisplayName = "Low"),
@@ -55,24 +55,24 @@ public:
 	// -------------------------------------------------------------------
 	// Convert Framerate to Int
 	// -------------------------------------------------------------------
-	static int EFramerateToValue(const EFramerate& Framerate)
+	static int EFramerateToValue(const EDU_USER_EFramerate& Framerate)
 	{
 		switch (Framerate)
 		{
-			case EFramerate::FPS_30: return 30;
-			case EFramerate::FPS_45: return 45;
-			case EFramerate::FPS_60: return 60;
-			case EFramerate::FPS_75: return 75;
-			case EFramerate::FPS_120: return 120;
-			case EFramerate::FPS_240: return 240;
-			case EFramerate::FPS_Uncapped: return 0;
+			case EDU_USER_EFramerate::FPS_30: return 30;
+			case EDU_USER_EFramerate::FPS_45: return 45;
+			case EDU_USER_EFramerate::FPS_60: return 60;
+			case EDU_USER_EFramerate::FPS_75: return 75;
+			case EDU_USER_EFramerate::FPS_120: return 120;
+			case EDU_USER_EFramerate::FPS_240: return 240;
+			case EDU_USER_EFramerate::FPS_Uncapped: return 0;
 			default: return 60;
 		}
 	}
 	// -------------------------------------------------------------------
 	// Convert FPS To String
 	// -------------------------------------------------------------------
-	static FString FramerateToString(const EFramerate& Framerate)
+	static FString FramerateToString(const EDU_USER_EFramerate& Framerate)
 	{
 		const int FPS = EFramerateToValue(Framerate);
 		return FPS > 0 ? FString::Printf(TEXT("%d FPS"), FPS) : FString::Printf(TEXT("No limit)"));
@@ -81,15 +81,15 @@ public:
 	// -------------------------------------------------------------------
 	// Convert Quality to String
 	// -------------------------------------------------------------------
-	static FText EQualityToString(const EQuality& Quality)
+	static FText EQualityToString(const EDU_USER_EQuality& Quality)
 	{
 		switch (Quality)
 		{
-			case EQuality::Lowest:	return FText::FromString(TEXT("Lowest"));
-			case EQuality::Low:		return FText::FromString(TEXT("Low"));
-			case EQuality::Medium:	return FText::FromString(TEXT("Medium"));
-			case EQuality::High:	return FText::FromString(TEXT("High"));
-			case EQuality::Highest:	return FText::FromString(TEXT("Highest"));
+			case EDU_USER_EQuality::Lowest:	return FText::FromString(TEXT("Lowest"));
+			case EDU_USER_EQuality::Low:		return FText::FromString(TEXT("Low"));
+			case EDU_USER_EQuality::Medium:	return FText::FromString(TEXT("Medium"));
+			case EDU_USER_EQuality::High:	return FText::FromString(TEXT("High"));
+			case EDU_USER_EQuality::Highest:	return FText::FromString(TEXT("Highest"));
 		}
 		return FText::FromString(TEXT("Unknown"));
 	}
@@ -104,14 +104,17 @@ class EDU_USER_API UEDU_USER_SettingsWidget : public UCommonActivatableWidget
 // Initialization & Object lifetime management
 //------------------------------------------------------------------------------	
 public:
+	
 	// This acts as "OnConstructed()", called through: UUserWidget::OnWidgetRebuilt().
 	// It notifies that the widget that it has been constructed.
 	virtual void NativeConstruct() override;
-	
-	// The NativeGetDesiredFocusTarget function is used to determine which widget within
-	// a composite widget (like a panel or user-defined widget) should receive focus
-	// by default when the parent widget is focused. This is particularly useful in managing
-	// keyboard or gamepad navigation within complex UIs.
+
+	/*------------------------------------------------------------------------------
+	  The NativeGetDesiredFocusTarget function is used to determine which widget
+	  within a composite widget (like a panel or user-defined widget) should receive
+	  focus by default when the parent widget is focused. This is particularly useful
+	  in managing keyboard or gamepad navigation within complex UIs.
+	------------------------------------------------------------------------------*/
 	virtual UWidget* NativeGetDesiredFocusTarget() const override;
 
 	void InitializeResolutionComboBox();

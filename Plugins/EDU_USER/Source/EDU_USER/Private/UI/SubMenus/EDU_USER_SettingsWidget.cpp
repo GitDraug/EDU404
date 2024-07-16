@@ -105,25 +105,25 @@ namespace
 	//------------------------------------------------------------------------------
 	// Used by InitializeFramerate()
 	//------------------------------------------------------------------------------
-	constexpr EFramerate FramerateOptionsArray[] = {
-		EFramerate::FPS_30,
-		EFramerate::FPS_45,
-		EFramerate::FPS_60,
-		EFramerate::FPS_75,
-		EFramerate::FPS_120,
-		EFramerate::FPS_240,
-		EFramerate::FPS_Uncapped,
+	constexpr EDU_USER_EFramerate FramerateOptionsArray[] = {
+		EDU_USER_EFramerate::FPS_30,
+		EDU_USER_EFramerate::FPS_45,
+		EDU_USER_EFramerate::FPS_60,
+		EDU_USER_EFramerate::FPS_75,
+		EDU_USER_EFramerate::FPS_120,
+		EDU_USER_EFramerate::FPS_240,
+		EDU_USER_EFramerate::FPS_Uncapped,
 	};
 
 	//------------------------------------------------------------------------------
 	// Used by InitializeQualitySettings()
 	//------------------------------------------------------------------------------
-	constexpr EQuality QualityOptionsArray[] = {
-		EQuality::Lowest,
-		EQuality::Low,
-		EQuality::Medium,
-		EQuality::High,
-		EQuality::Highest,
+	constexpr EDU_USER_EQuality QualityOptionsArray[] = {
+		EDU_USER_EQuality::Lowest,
+		EDU_USER_EQuality::Low,
+		EDU_USER_EQuality::Medium,
+		EDU_USER_EQuality::High,
+		EDU_USER_EQuality::Highest,
 	};
 	
 	// Create a type alias for a member function pointer in UGameUserSettings that returns an int32 and is const-qualified.

@@ -1,13 +1,12 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
+﻿
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
-
-#include "Framework/Data/EDU_USER_DataTypes.h"
 #include "EDU_USER_PlayerController.generated.h"
 
+enum class EEDU_USER_InputModifierKey : uint8;
+enum class EEDU_USER_CurrentPawn : uint8;
 struct FInputActionValue;
 class APawn;
 class UInputMappingContext;
@@ -17,6 +16,7 @@ class UDataAsset;
 class UEDU_USER_CameraPawnInputDataAsset;
 class UEDU_USER_ControllerInputDataAsset;
 class AEDU_USER_HUD;
+class IEDU_UNIT_Selectable;
 
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
@@ -35,7 +35,7 @@ class AEDU_USER_HUD;
   owning client. This means that the GameMode owns all Player controllers.
 
   In this project, the Controller holds shared input and is able to switch
-  between pawns. Pawn-specific actions and functions  are typed out in each
+  between pawns. Pawn-specific actions and functions are typed out in each
   individual pawn.
 ------------------------------------------------------------------------------*/
 UCLASS(Abstract)
@@ -48,38 +48,23 @@ class EDU_USER_API AEDU_USER_PlayerController : public APlayerController
 //------------------------------------------------------------------------------	
 public:
 	AEDU_USER_PlayerController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-
-	void UpdateMappingContext();
 	
 protected:
-	virtual void BeginPlay() override;
-	
 	virtual void OnPossess(APawn* InPawn) override;
-
-private:
-	void LoadKeyMappings();
+	virtual void BeginPlay() override;
+	virtual void PlayerTick(float DeltaTime) override;
 
 //------------------------------------------------------------------------------
 // Get/Set
 //------------------------------------------------------------------------------  
 public:
 	// The GameMode in EDU_USER effect these
-	virtual void SetPlayerStartLocation(const FVector Location) { PlayerStartLocation = Location; };
-	
-	virtual FVector GetPlayerStartLocation() const { return PlayerStartLocation; }
-	virtual UEnhancedInputLocalPlayerSubsystem* GetInputSubsystem() { return InputSubSystem; }
+	FORCEINLINE virtual void SetPlayerStartLocation(const FVector Location) { PlayerStartLocation = Location; };
+	FORCEINLINE	virtual FVector GetPlayerStartLocation() const { return PlayerStartLocation; }
+	FORCEINLINE virtual UEnhancedInputLocalPlayerSubsystem* GetInputSubsystem() { return InputSubSystem; }
 
 	virtual void SetMappingContext(EEDU_USER_CurrentPawn Context);
 	
-//------------------------------------------------------------------------------
-// Functionality 
-//------------------------------------------------------------------------------
-private:
-	// We can Add and remove various contexts depending on game
-	virtual void AddInputMappingContext(const UInputMappingContext* InputMappingContext, const int32 MappingPriority);
-	virtual void RemoveInputMappingContext(const UInputMappingContext* InputMappingContext);
-	
-
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
@@ -90,7 +75,26 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<AEDU_USER_HUD> LocalHUD;
+	
+	/*---------------- Pointers for Selectable interface in UNIT plugin ------------
+	  TScriptInterface is essentially, a fancy pointer. It's a template class that
+	  provides a way to work with interface types in a manner that is compatible
+	  with both C++ and the Engine reflection system (UObject system).
 
+	  It wraps around a UObject that implements a given interface, allowing you to
+	  call the interface methods directly and ensuring type safety.
+
+	  Make sure the UNIT Plugin is included in this plugin as a private dependency.
+	------------------------------------------------------------------------------*/
+	TScriptInterface<IEDU_UNIT_Selectable> LastActor; // Last Actor under Cursor
+	TScriptInterface<IEDU_UNIT_Selectable> CurrentActor; // Current Actor under Cursor
+	
+//------------------------------------------------------------------------------
+// Functionality: Utility
+//------------------------------------------------------------------------------
+private:
+	void CursorTrace();
+	
 //------------------------------------------------------------------------------
 // Input: Components
 //------------------------------------------------------------------------------
@@ -103,10 +107,6 @@ private:
 	// Internal pointer to Default InputMappingContext (Keymappings) and Actions.
 	UPROPERTY()
 	TObjectPtr<UEDU_USER_ControllerInputDataAsset> InputDataAsset;
-
-	// Keeps track of what InputContext (keymapping) we want to use.
-	UPROPERTY()
-	EEDU_USER_CurrentPawn CurrentPawn;
 	
 	// The EnhancedInputLocalPlayerSubsystem is a global singleton to that managed all input contexts.
 	UPROPERTY()
@@ -115,6 +115,10 @@ private:
 	// The UEnhancedInputComponent handles Action Inputs.
 	UPROPERTY()
 	TObjectPtr<UEnhancedInputComponent> EnhancedInputComponent;
+
+	// Keeps track of what InputContext (keymapping) we want to use.
+	UPROPERTY()
+	EEDU_USER_CurrentPawn CurrentPawn;
 	
 	/*------------------------------------------------------------------------------
 	  Internal Pointers to InputContexts: these are either loaded with
@@ -150,13 +154,19 @@ private:
 //---------------------------------------------------------------------------
 protected:
 	// Assigns the UEnhancedInputLocalPlayerSubsystem pointer and debugs if it fails.
-	void SetupInputSubSystem();
+	virtual void SetupInputSubSystem();
 
 	virtual void SetupInputComponent() override;
 	
 	// Update EEDU_USER_InputModifierKey
 	virtual void SetModifierKey();
 
+	// Load Default CameraPawnInputContext from DataAsset or UserSettings from SaveFile
+	virtual void LoadKeyMappings();
+
+	virtual void AddInputMappingContext(const UInputMappingContext* InputMappingContext, const int32 MappingPriority);
+	virtual void RemoveInputMappingContext(const UInputMappingContext* InputMappingContext);
+	
 	// input Actions
 	virtual void Input_Mod_1_Pressed		(const FInputActionValue& InputActionValue);
 	virtual void Input_Mod_1_Released		(const FInputActionValue& InputActionValue);

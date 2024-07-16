@@ -4,8 +4,13 @@
 #include "Framework/Data/EDU_USER_ControllerInputDataAsset.h"
 #include "Framework/Data/FlowLog.h"
 
+// External: These needs to be added in the .uplugin file too!
+#include "Interfaces/EDU_UNIT_Selectable.h"
+#include "UObject/ScriptInterface.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Framework/Data/EDU_USER_DataTypes.h"
+
 //------------------------------------------------------------------------------
 // Initialization & Object lifetime management
 //------------------------------------------------------------------------------
@@ -26,7 +31,79 @@ void AEDU_USER_PlayerController::BeginPlay()
 
 	// Make sure this pointer is initiated.
 	if(!InputSubSystem) { SetupInputSubSystem(); }
+	
+	FInputModeGameAndUI InputModeData; // Settings container
+	InputModeData.SetHideCursorDuringCapture(false); // Whether to hide the cursor during temporary mouse capture caused by a mouse down
+	InputModeData.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock); // Don't lock to window. It's better to put this in a menu.
+	SetShowMouseCursor(true);
 }
+
+void AEDU_USER_PlayerController::PlayerTick(float DeltaTime)
+{ FLOW_LOG_TICK
+	Super::PlayerTick(DeltaTime);
+	
+	CursorTrace();
+}
+
+//------------------------------------------------------------------------------
+// Functionality: Utility
+//------------------------------------------------------------------------------
+
+void AEDU_USER_PlayerController::CursorTrace()
+{ FLOW_LOG_TICK
+	
+	// TODO: It would be best to make a custom CollisionProfile or channel for only selectables.
+	FHitResult CursorHit;
+	GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
+
+	if(!CursorHit.bBlockingHit) { return; }
+
+	/*---------------- Pointers for Selectable interface in UNIT plugin ------------
+	  TScriptInterface allows us to do some abstract sugar; we don't need to cast
+	  CursorHit.GetActor() to check it it can be molded into the interface class
+	  we use, it's checked automagically. =)
+	------------------------------------------------------------------------------*/
+	LastActor = CurrentActor;
+	CurrentActor = CursorHit.GetActor();
+
+	/*------------------------------------------------------------------------------
+	  Line Trace from Cursor, possible scenarios:
+		  1. LastActor == null && CurrentActor && null
+				Do Nothing.
+		  2. LastActor == null && CurrentActor is valid
+				Highlight CurrentActor
+		  3. LastActor is valid && CurrentActor && null
+				Unhighlight LastActor
+		  4. Both actors are valid, but LastActor != CurrentActor
+				Unhighlight LastActor, Highlight CurrentActor
+		  5. Both actors are valid, and LastActor == CurrentActor
+				Do nothing.
+	------------------------------------------------------------------------------*/
+	if(LastActor == nullptr)
+	{
+		if(CurrentActor == nullptr)	{ } // Scenario 1; Do Nothing.
+		else { CurrentActor->HighlightActor(); } // Scenario 2: Highlight CurrentActor
+	}
+	else
+	{   
+		if(CurrentActor == nullptr) 
+		{
+			// Scenario 3: LastActor is valid && CurrentActor && null
+			LastActor->UnHighlightActor();
+		}
+		else //  Both actors are valid...
+		{
+			if(LastActor != CurrentActor) // ...but LastActor != CurrentActor
+			{  // Scenario 4:
+				LastActor->UnHighlightActor();
+				CurrentActor->HighlightActor();
+			}
+			// Else:Both actors are valid, and LastActor == CurrentActor
+			// Scenario 5: Do nothing.
+		}
+	}
+}
+	
 //------------------------------------------------------------------------------
 // Input
 //------------------------------------------------------------------------------
@@ -55,14 +132,16 @@ void AEDU_USER_PlayerController::SetupInputComponent()
 	// The InputComponent pointer lives in Actor.h, but we need the derived UEnhancedInputComponent pointer
 	if(!EnhancedInputComponent)
 	{
-		EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent);FLOW_LOG_IF(EnhancedInputComponent, )
-			
+		EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent);
+
+		// Test if the cast worked correctly.
 		if(!EnhancedInputComponent)
 		{
 			FLOW_LOG_ERROR("EnhancedInputComponent failed, retrying...")
 			SetupInputComponent();
 			return;
 		}
+		
 		FLOW_LOG_WARNING("EnhancedInputComponent Succesfully Cast and Stored")		
 	}
 	
@@ -84,6 +163,21 @@ void AEDU_USER_PlayerController::SetupInputComponent()
 	LoadKeyMappings();
 }
 
+void AEDU_USER_PlayerController::LoadKeyMappings()
+{ FLOW_LOG
+	if(!InputDataAsset) { SetupInputComponent(); return; }
+
+	//TODO: Add saved option.
+	// if(SavedUserIinput)
+	// ControllerInputContext = SavedControllerInputContext;
+	// return;
+	
+	// Load Default CameraPawnInputContext from DataAsset
+	ControllerInputContext = InputDataAsset->ControllerInputContext;
+	CameraInputContext = InputDataAsset->CameraInputContext;
+	CharacterInputContext = InputDataAsset->CharacterInputContext;
+}
+
 void AEDU_USER_PlayerController::SetupInputSubSystem()
 { FLOW_LOG
 	/*--------------------------------------------------------------------------------------
@@ -92,7 +186,7 @@ void AEDU_USER_PlayerController::SetupInputSubSystem()
 	  in different contexts.
 	  
 	  UEnhancedInputLocalPlayerSubsystem is higher up in the hierarchy and manages the
-	  input contexts.
+	  input contexts (KeyMappings).
 	  
 	  UEnhancedInputComponent works as a component on an actor to bind Input Actions to
 	  functions.
@@ -114,48 +208,10 @@ void AEDU_USER_PlayerController::SetupInputSubSystem()
 	FLOW_LOG_ERROR("UEnhancedInputLocalPlayerSubsystem is not working, is module included?");
 }
 
-void AEDU_USER_PlayerController::LoadKeyMappings()
-{ FLOW_LOG
-	if(!InputDataAsset) { SetupInputComponent(); return; }
-
-	//TODO: Add saved option.
-	// if(SavedUserIinput)
-	// ControllerInputContext = SavedControllerInputContext;
-	// return;
-	
-	// Load Default CameraPawnInputContext from DataAsset
-	ControllerInputContext = InputDataAsset->ControllerInputContext;
-	CameraInputContext = InputDataAsset->CameraInputContext;
-	CharacterInputContext = InputDataAsset->CharacterInputContext;
-}
-
-void AEDU_USER_PlayerController::UpdateMappingContext()
-{ FLOW_LOG
-	// Make sure the UEnhancedInputLocalPlayerSubsystem pointer is working.
-	if(!InputSubSystem) { SetupInputSubSystem(); }
-
-	if(InputSubSystem)
-	{
-		// if(SharedInputContext) { AddInputMappingContext(SharedInputContext, 0); }
-
-		InputSubSystem->AddMappingContext(ControllerInputContext, 0);
-
-		// Reset InputMappings, in case anything remains from the previous level or menu or whatnot.
-		// InputSubSystem->ClearAllMappings();
-
-		FInputModeGameAndUI InputModeData; // Settings container
-		InputModeData.SetHideCursorDuringCapture(false); // Whether to hide the cursor during temporary mouse capture caused by a mouse down
-		InputModeData.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock); // Don't lock to window. It's better to put this in a menu.
-
-		SetInputMode(InputModeData);
-		SetShowMouseCursor(true);
-	}
-}
-
 void AEDU_USER_PlayerController::SetMappingContext(EEDU_USER_CurrentPawn Context)
 { FLOW_LOG
 	switch (Context) {
-	case EEDU_USER_CurrentPawn::None:
+case EEDU_USER_CurrentPawn::None:
 		FLOW_LOG_WARNING("Switching to Controller")
 		AddInputMappingContext(ControllerInputContext, 0);
 		break;

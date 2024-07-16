@@ -10,13 +10,18 @@ public class EDU404 : ModuleRules
 	
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
-			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput"
+			"Core",
+			"CoreUObject",
+			"Engine",
+			"InputCore",
+			"EnhancedInput"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"EDU_CORE",
-			"EDU_USER",
+			//"EDU_UNIT",
+			//"EDU_USER",
 			"OSSV1_Multiplayer_Plugin"
 		});
 

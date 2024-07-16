@@ -13,7 +13,7 @@ class UInputAction;
 /*------------------------------------------------------------------------------
   This DataAsset holds the Data and functionality for the Controller.
 
-  This is nat a PrimaryDataAsset, so it's ALWAYS loaded, but with such
+  This is not a PrimaryDataAsset, so it's ALWAYS loaded, but with such
   a small Data Asset it really doesn't matter.
 ------------------------------------------------------------------------------*/
 UCLASS()

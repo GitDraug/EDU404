@@ -141,7 +141,7 @@ void UEDU_USER_SelectionWidget::ClearCurrentSelection()
 	OptionsArray.Reset();
 }
 
-void UEDU_USER_SelectionWidget::AddOption(const FSelectionOption& inOption)
+void UEDU_USER_SelectionWidget::AddOption(const F_EDU_USER_SelectionOption& inOption)
 { FLOW_LOG
 	OptionsArray.Add(inOption);
 	UpdateCurrentSelection();

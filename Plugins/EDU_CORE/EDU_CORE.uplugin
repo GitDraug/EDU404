@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0",
 	"FriendlyName": "EDU_CORE",
-	"Description": "",
+	"Description": "Core Functionality",
 	"Category": "Other",
 	"CreatedBy": "Draug",
 	"CreatedByURL": "",
@@ -20,10 +20,15 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}
-	],	"Plugins": [
-	{
-		"Name": "EnhancedInput",
-		"Enabled": true
-	}
-]
+	],
+	"Plugins": [
+		{
+			"Name": "EnhancedInput",
+			"Enabled": true
+		},
+		{
+			"Name": "CommonUI",
+			"Enabled": true
+		}
+	]
 }
