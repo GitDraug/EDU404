@@ -3,11 +3,11 @@
 //------------------------------------------------------------------------------
 // This Plugin
 //------------------------------------------------------------------------------
-#include "Framework/Pawns/EDU_CORE_CameraPawn.h"
+#include "Framework/Pawns/EDU_CORE_SpectatorCamera.h"
 
 #include "Framework/Data/DataTypes/EDU_CORE_DataTypes.h"
 #include "Framework/Data/DataAssets/EDU_CORE_CameraPawnInputDataAsset.h"
-#include "Framework/Data/FLOWLOG/FLOWLOG_PLAYER.h"
+#include "Framework/Data/FLOWLOGS/FLOWLOG_PLAYER.h"
 
 #include "Framework/Player/EDU_CORE_PlayerController.h"
 
@@ -17,13 +17,13 @@
 //------------------------------------------------------------------------------
 #include "Camera/CameraComponent.h"
 #include "EnhancedInputComponent.h"
-#include "Entities/Units/EDU_CORE_TestPawn.h"
+#include "AI/WayPoints/EDU_CORE_Waypoint.h"
 #include "GameFramework/SpringArmComponent.h"
 
 //------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
-AEDU_CORE_CameraPawn::AEDU_CORE_CameraPawn(const FObjectInitializer& ObjectInitializer) : Super (ObjectInitializer)
+AEDU_CORE_SpectatorCamera::AEDU_CORE_SpectatorCamera(const FObjectInitializer& ObjectInitializer) : Super (ObjectInitializer)
 { FLOW_LOG
 	// Tick
 	PrimaryActorTick.bCanEverTick = true;
@@ -45,7 +45,7 @@ AEDU_CORE_CameraPawn::AEDU_CORE_CameraPawn(const FObjectInitializer& ObjectIniti
 //------------------------------------------------------------------------------
 // Object Lifetime Management
 //------------------------------------------------------------------------------
-void AEDU_CORE_CameraPawn::PawnClientRestart()
+void AEDU_CORE_SpectatorCamera::PawnClientRestart()
 { FLOW_LOG // Called on the owning client of a player-controlled Pawn when it is restarted.
 	Super::PawnClientRestart();
 
@@ -65,11 +65,12 @@ void AEDU_CORE_CameraPawn::PawnClientRestart()
 	
 	// Restart if the cast failed.
 	if(!LocalController) { PawnClientRestart(); return; }
-	FLOW_LOG_ONSCREEN_MESSAGE("LocalController Saved Successfully.")
+	if(LocalController)
+	// FLOW_LOG_ONSCREEN_MESSAGE("LocalController Saved Successfully.")
 
 	// Now that we have the right type of the controller, we can use it to get the right HUD.
 	LocalHUD = LocalController->GetHUD<AEDU_CORE_HUD>();
-	FLOW_LOG_IF(LocalHUD, FLOW_LOG_ONSCREEN_MESSAGE("LocalHUD Casted and Saved Successfully."))
+	// FLOW_LOG_IF(LocalHUD, FLOW_LOG_ONSCREEN_MESSAGE("LocalHUD Casted and Saved Successfully."))
 	
 	// We've already set the InputComponent using Super::PawnClientRestart(), now we need to switch the InputContext.
 	LocalController->SetMappingContext(EEDU_CORE_CurrentPawn::Camera);
@@ -78,10 +79,12 @@ void AEDU_CORE_CameraPawn::PawnClientRestart()
 	SetPawnDefaults();
 }
 
-void AEDU_CORE_CameraPawn::Tick(float DeltaTime)
-{ FLOW_LOG_TICK
+void AEDU_CORE_SpectatorCamera::Tick(float DeltaTime)
+{ // FLOW_LOG_TICK
 	Super::Tick(DeltaTime);
 
+	// Debug Messages
+	/*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan, FString::Printf(TEXT("Elements in SelectionArray: %d "), SelectionArray.Num()));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Emerald, FString::Printf(TEXT("Elements in Ctrl Group 1: %d "), CTRL_Group_1.GroupArray.Num()));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Emerald, FString::Printf(TEXT("Elements in Ctrl Group 2: %d "), CTRL_Group_2.GroupArray.Num()));
@@ -94,8 +97,6 @@ void AEDU_CORE_CameraPawn::Tick(float DeltaTime)
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Emerald, FString::Printf(TEXT("Elements in Ctrl Group 9: %d "), CTRL_Group_9.GroupArray.Num()));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Emerald, FString::Printf(TEXT("Elements in Ctrl Group 0: %d "), CTRL_Group_0.GroupArray.Num()));
 	
-	// Debug Messages
-	/*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Yellow, FString::Printf(TEXT("AutoScrollDirection.X %f"), ScrollDirection.X));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Yellow, FString::Printf(TEXT("AutoScrollDirection.Y %f"), ScrollDirection.Y));
 	
@@ -138,6 +139,19 @@ void AEDU_CORE_CameraPawn::Tick(float DeltaTime)
 	
 	// Conditional Tick
 	if(SpringArmComponent == nullptr || InputData == nullptr || !bIsInitialized) { return; }
+	
+	CursorTrace();
+
+	if(bMouse_2) // Used for rotating waypoints and units; lock the camera.
+	{
+		Mouse_2_PressedTime += DeltaTime; // TimeGate before we start doing calculations.
+		if(Mouse_2_PressedTime > MousePressDelay)
+		{
+			// Rotate the vector towards the cursor.
+			CursorRotation = (CursorWorldPos - SavedCursorWorldPos).Rotation();
+			return;
+		}
+	}
 	
 	if(bZoomIn || bZoomOut)
 	{
@@ -200,7 +214,7 @@ void AEDU_CORE_CameraPawn::Tick(float DeltaTime)
 	
 }
 
-void AEDU_CORE_CameraPawn::UnPossessed()
+void AEDU_CORE_SpectatorCamera::UnPossessed()
 { FLOW_LOG
 
 	// This might be an overkill, but if another controller posses this pawn, then we want to make sure it is reset.
@@ -214,7 +228,7 @@ void AEDU_CORE_CameraPawn::UnPossessed()
 // Input Setup
 //------------------------------------------------------------------------------
 
-void AEDU_CORE_CameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void AEDU_CORE_SpectatorCamera::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 { FLOW_LOG
 	/*------------------------------------------------------------------------------
 	PlayerInputComponent is responsible for binding InputMappings to function,
@@ -312,7 +326,7 @@ void AEDU_CORE_CameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	}		
 }
 
-void AEDU_CORE_CameraPawn::SetPlayerInputMode()
+void AEDU_CORE_SpectatorCamera::SetPlayerInputMode()
 { FLOW_LOG
 	//if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalController->GetInputSubsystem())
 	//{
@@ -325,7 +339,7 @@ void AEDU_CORE_CameraPawn::SetPlayerInputMode()
 	//}
 }
 
-void AEDU_CORE_CameraPawn::SetPawnDefaults()
+void AEDU_CORE_SpectatorCamera::SetPawnDefaults()
 { FLOW_LOG
 	if(IsLocallyControlled() && SpringArmComponent != nullptr && InputData != nullptr)
 	{
@@ -347,9 +361,6 @@ void AEDU_CORE_CameraPawn::SetPawnDefaults()
 		// EdgeScroll Settings
 		ScreenEdgeArea = InputData->ScreenEdgeArea;
 		EdgeScrollSpeed = InputData->EdgeScrollSpeed;
-
-		// Make sure the Camera doesn't hit itself when tracing.
-		CameraTraceCollisionParams.AddIgnoredActor(this); // Ignore the player
 				
 		// All set, start ticking!
 		bIsInitialized = true;
@@ -382,7 +393,7 @@ void AEDU_CORE_CameraPawn::SetPawnDefaults()
 // Functionality: Utility
 //------------------------------------------------------------------------------
 
-void AEDU_CORE_CameraPawn::ResetCamera()
+void AEDU_CORE_SpectatorCamera::ResetCamera()
 { FLOW_LOG
 	EnableInterpRotation();
 	EnableInterpMovement();
@@ -395,21 +406,22 @@ void AEDU_CORE_CameraPawn::ResetCamera()
 	}
 }
 
-void AEDU_CORE_CameraPawn::EnableInterpRotation()
+void AEDU_CORE_SpectatorCamera::EnableInterpRotation()
 { FLOW_LOG
 	bInterpRot = true;
 	InterpTimer = 1.f;
 }
 
-void AEDU_CORE_CameraPawn::EnableInterpMovement(float Time)
+void AEDU_CORE_SpectatorCamera::EnableInterpMovement(float Time)
 { FLOW_LOG
 	bInterpMov = true;
 	InterpTimer = Time;
 }
 
-void AEDU_CORE_CameraPawn::CameraTrace()
+void AEDU_CORE_SpectatorCamera::CameraTrace()
 { FLOW_LOG
 	// Get the mouse position
+	FVector2d MousePos;
 	if (LocalController && LocalController->GetMousePosition(MousePos.X, MousePos.Y))
 	{
 		// Deproject the mouse position to a world position and direction
@@ -420,6 +432,8 @@ void AEDU_CORE_CameraPawn::CameraTrace()
 			FVector TraceStart = WorldLocation;
 			FVector TraceEnd = WorldLocation + (WorldDirection * (ZoomTraceLength+SpringArmComponent->TargetArmLength));
 			
+			FHitResult CameraTraceResult;
+			FCollisionQueryParams CameraTraceCollisionParams;
 			// Perform the CameraTrace
 			if(GetWorld()->LineTraceSingleByChannel(CameraTraceResult, TraceStart, TraceEnd, ECC_Visibility, CameraTraceCollisionParams))
 			{
@@ -496,8 +510,94 @@ void AEDU_CORE_CameraPawn::CameraTrace()
 	}
 }
 
-void AEDU_CORE_CameraPawn::MoveCameraAnchor(const FVector2d& Direction, const float& Speed)
-{ FLOW_LOG_TICK
+void AEDU_CORE_SpectatorCamera::CursorTrace()
+{ // FLOW_LOG_TICK
+	/*--------------------- Frame limited tick functions ---------------------------
+	  Most tick functions don't need to run 30+ times a second. A function running
+	  every third tick still runs 10 times a second.
+  
+	  The FrameCounter measures frames passed since we last called the function,
+	  we then reset the counter.
+	------------------------------------------------------------------------------*/
+	if(FrameCounter < 3) { FrameCounter++; 	return; }
+	else { FrameCounter = 0; }
+
+	FHitResult CameraTraceResult;
+	FCollisionQueryParams CameraTraceCollisionParams;
+	
+	// Get the mouse position
+	FVector2d MousePos;
+	if (LocalController && LocalController->GetMousePosition(MousePos.X, MousePos.Y))
+	{
+		// Deproject the mouse position to a world position and direction
+		FVector WorldLocation, WorldDirection;		
+		if (LocalController->DeprojectScreenPositionToWorld(MousePos.X, MousePos.Y, WorldLocation, WorldDirection))
+		{
+			// Define the start and end points of the trace
+			FVector TraceStart = WorldLocation;
+			FVector TraceEnd = WorldLocation + (WorldDirection * (ZoomTraceLength+SpringArmComponent->TargetArmLength));
+			
+			// Perform the CameraTrace // TODO: It would be best to make a custom CollisionProfile or channel for only Ground and Selectables.
+			if(GetWorld()->LineTraceSingleByChannel(CameraTraceResult, TraceStart, TraceEnd, ECC_Visibility, CameraTraceCollisionParams))
+			{
+				// Check if we hit something
+				if(CameraTraceResult.bBlockingHit)
+				{
+					// Save WorldPosition for other functions.
+					CursorWorldPos = CameraTraceResult.ImpactPoint;
+	
+					// Highlight any selectable entity that we might have the cursor on.
+					LastActor = CurrentActor;
+					CurrentActor = Cast<AEDU_CORE_SelectableEntity>(CameraTraceResult.GetActor());
+					/*------------------------------------------------------------------------------
+					  Line Trace from Cursor, possible scenarios:
+						  1. LastActor == null && CurrentActor && null
+								Do Nothing.
+						  2. LastActor == null && CurrentActor is valid
+								Highlight CurrentActor
+						  3. LastActor is valid && CurrentActor && null
+								Unhighlight LastActor
+						  4. Both actors are valid, but LastActor != CurrentActor
+								Unhighlight LastActor, Highlight CurrentActor
+						  5. Both actors are valid, and LastActor == CurrentActor
+								Do nothing.
+					------------------------------------------------------------------------------*/
+					if(LastActor == nullptr)
+					{
+						if(CurrentActor == nullptr)
+						{
+							// Scenario 1; Do Nothing.
+						}
+						else
+						{
+							CurrentActor->MouseHighlightActor(); // Scenario 2: Highlight CurrentActor
+						}
+					}
+					else // LastActor is valid...
+					{   
+						if(CurrentActor == nullptr) 
+						{
+							LastActor->MouseUnHighlightActor(); // Scenario 3: LastActor is valid && CurrentActor && null
+						}
+						else //  Both actors are valid...
+						{
+							if(LastActor != CurrentActor) // ...but LastActor != CurrentActor
+							{  // Scenario 4:
+								LastActor->MouseUnHighlightActor();
+								CurrentActor->MouseHighlightActor();
+							}
+							// Else:Both actors are valid, and LastActor == CurrentActor
+							// Scenario 5: Do nothing.
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void AEDU_CORE_SpectatorCamera::MoveCameraAnchor(const FVector2d& Direction, const float& Speed)
+{ // FLOW_LOG_TICK
 	// We're rotating CameraAnchor not the SpringArm
 	TargetLocation += CameraAnchor->GetRelativeRotation().RotateVector(FVector(Direction.X * Speed, Direction.Y * Speed, 0.0f)); // Z should be 0.
 	GetTerrainPosition(TargetLocation, LastValidLocation);
@@ -505,8 +605,8 @@ void AEDU_CORE_CameraPawn::MoveCameraAnchor(const FVector2d& Direction, const fl
 	EnableInterpMovement();
 }
 
-void AEDU_CORE_CameraPawn::GetTerrainPosition(FVector& TargetPos, FVector& LastValidPos) const
-{ FLOW_LOG_TICK
+void AEDU_CORE_SpectatorCamera::GetTerrainPosition(FVector& TargetPos, FVector& LastValidPos) const
+{ // FLOW_LOG_TICK
 	// New trace
 	FHitResult GroundTrace;
 	FCollisionQueryParams CollisionParameters;
@@ -542,8 +642,8 @@ void AEDU_CORE_CameraPawn::GetTerrainPosition(FVector& TargetPos, FVector& LastV
 	}
 }
 
-void AEDU_CORE_CameraPawn::UpdateCameraRotation(const float DeltaTime) const
-{ FLOW_LOG_TICK
+void AEDU_CORE_SpectatorCamera::UpdateCameraRotation(const float DeltaTime) const
+{ // FLOW_LOG_TICK
 	// Rotate the Camera to target pitch
 	// Observe the SpringArmComponent; it acts like a barrel, on a turret, only going up and down. It doesn't affect the rotation or the pitch of the CameraAnchor. 
 	FRotator InterpPitch = FMath::RInterpTo(SpringArmComponent->GetRelativeRotation(), TargetRotation, DeltaTime, InputData->PitchInterpSpeed);
@@ -558,15 +658,15 @@ void AEDU_CORE_CameraPawn::UpdateCameraRotation(const float DeltaTime) const
 	CameraAnchor->SetRelativeRotation(InterpRotation);	
 }
 
-void AEDU_CORE_CameraPawn::UpdateCameraLocation(const float DeltaTime)
-{ FLOW_LOG_TICK
+void AEDU_CORE_SpectatorCamera::UpdateCameraLocation(const float DeltaTime)
+{ // FLOW_LOG_TICK
 	// Move Pawn to target location
 	// Interpolate vector from Current to Target, scaled by distance to Target, so it has a strong start speed and ease out.
 	FVector InterpLocation = FMath::VInterpTo(GetActorLocation(), TargetLocation, DeltaTime, InputData->MoveInterSpeed);
 	SetActorLocation(InterpLocation);
 }
 
-void AEDU_CORE_CameraPawn::UpdateCameraZoom(const float DeltaTime)
+void AEDU_CORE_SpectatorCamera::UpdateCameraZoom(const float DeltaTime)
 { FLOW_LOG
 	// <!> Note that this is a tick executed function, so be careful to set values that shouldn't be updated on tick.
 	if (bZoomOut)
@@ -576,12 +676,12 @@ void AEDU_CORE_CameraPawn::UpdateCameraZoom(const float DeltaTime)
 		const float InterpZoom = FMath::FInterpTo(SpringArmComponent->TargetArmLength, TargetZoom, DeltaTime, InputData->ZoomInterpSpeed);
 		SpringArmComponent->TargetArmLength = InterpZoom;
 		
-		// Check if we should stop, we use 95%, because Interpolation algebra will run close to forever as the value gets smaller.
+		// Check if we should stop, we use 98%, because Interpolation algoritm will run close to forever as the value gets smaller.
 		if(SpringArmComponent->TargetArmLength > TargetZoom * 0.98f)
 		{
 			bZoomOut = false;
 
-			if(bAutoPitch && SpringArmComponent->TargetArmLength > InputData->MaxZoom * 0.98f)
+			if(bAutoPitch && SpringArmComponent->TargetArmLength > InputData->MaxZoom * 0.981f)
 			{
 				// If AutoPitch is Disengaged due to FreeLook, then we want to reset the camera when it Zooms out fully, same as in SupCom.
 				ResetCamera();
@@ -601,8 +701,8 @@ void AEDU_CORE_CameraPawn::UpdateCameraZoom(const float DeltaTime)
 		const float InterpZoom = FMath::FInterpTo(SpringArmComponent->TargetArmLength, TargetZoom, DeltaTime, InputData->ZoomInterpSpeed);
 		SpringArmComponent->TargetArmLength = InterpZoom;
 		
-		// Check if we should stop, we use 95%, because Interpolation algebra will run close to forever as the value get smaller.
-		if(SpringArmComponent->TargetArmLength < TargetZoom * 1.1f)
+		// Check if we should stop, we use 99.9%, because Interpolation algebra will run close to forever as the value get smaller.
+		if(SpringArmComponent->TargetArmLength < TargetZoom * 1.01f)
 		{
 			bZoomIn = false;
 			bZoomFocusFinished = true;
@@ -615,7 +715,7 @@ void AEDU_CORE_CameraPawn::UpdateCameraZoom(const float DeltaTime)
 	}
 }
 
-void AEDU_CORE_CameraPawn::UpdateMouseDirection()
+void AEDU_CORE_SpectatorCamera::UpdateMouseDirection()
 { // TODO: Copy this to the playerController as a Getter.
 	/*----------------------- vs GetInputMouseDelta ------------------------------------
 	  This function updates the Mouse Input as a value, without the need of a viewport,
@@ -625,6 +725,7 @@ void AEDU_CORE_CameraPawn::UpdateMouseDirection()
 	  a mouse button is held down. This one runs on tick instead, regardless if a
 	  mouse button uis held.
 	---------------------------------------------------------------------------------*/
+	FVector2d MousePos;
 	LocalController->GetMousePosition(MousePos.X, MousePos.Y);
 
 	//-----------------------------------------------
@@ -640,8 +741,9 @@ void AEDU_CORE_CameraPawn::UpdateMouseDirection()
 	LocalController->SetMouseLocation(SavedMousePos.X, SavedMousePos.Y);
 }
 
-void AEDU_CORE_CameraPawn::DisableMouseEvents()
+void AEDU_CORE_SpectatorCamera::DisableMouseEvents()
 { FLOW_LOG
+	FVector2d MousePos;
 	LocalController->GetMousePosition(MousePos.X, MousePos.Y);
 
 	// Initial Position
@@ -654,7 +756,7 @@ void AEDU_CORE_CameraPawn::DisableMouseEvents()
 	LocalController->bEnableMouseOverEvents = false;
 }
 
-void AEDU_CORE_CameraPawn::EnableMouseEvents() const
+void AEDU_CORE_SpectatorCamera::EnableMouseEvents() const
 { FLOW_LOG
 	LocalController->SetMouseLocation(SavedMousePos.X, SavedMousePos.Y);
 	
@@ -664,7 +766,7 @@ void AEDU_CORE_CameraPawn::EnableMouseEvents() const
 	LocalController->bEnableMouseOverEvents = true;
 }
 
-void AEDU_CORE_CameraPawn::AutoPitch(const float DeltaTime)
+void AEDU_CORE_SpectatorCamera::AutoPitch(const float DeltaTime)
 {
 	float PitchRange = AutoPitchMax - AutoPitchMin;
 	float InvertedPercentage = 1.0f - SpringArmComponent->TargetArmLength / InputData->MaxZoom;
@@ -680,16 +782,19 @@ void AEDU_CORE_CameraPawn::AutoPitch(const float DeltaTime)
 // Functionality: Special Movement
 //------------------------------------------------------------------------------
 
-void AEDU_CORE_CameraPawn::EdgeScroll()
-{ FLOW_LOG_TICK
+void AEDU_CORE_SpectatorCamera::EdgeScroll()
+{ // FLOW_LOG_TICK
+	FVector2d MousePos; // Stack allocated MousPos is faster than the heap.
 	// Don't EdgeScroll if the mouse is outside the window.
 	if(!LocalController->GetMousePosition(MousePos.X, MousePos.Y)) {return; };
+
+	FIntVector2 ScreenSize;
 	LocalController->GetViewportSize(ScreenSize.X, ScreenSize.Y);
 
-	DistanceToLeftEdge = MousePos.X;
-	DistanceToRightEdge = ScreenSize.X - MousePos.X;
-	DistanceToTopEdge = MousePos.Y;
-	DistanceToBottomEdge = ScreenSize.Y - MousePos.Y;
+	float DistanceToLeftEdge = MousePos.X;
+	float DistanceToRightEdge = ScreenSize.X - MousePos.X;
+	float DistanceToTopEdge = MousePos.Y;
+	float DistanceToBottomEdge = ScreenSize.Y - MousePos.Y;
 	
 	if (DistanceToTopEdge <= ScreenEdgeArea)	{ ScrollDirection.X = ScreenEdgeArea - DistanceToTopEdge; } // Up
 	if (DistanceToBottomEdge <= ScreenEdgeArea)	{ ScrollDirection.X = DistanceToBottomEdge - ScreenEdgeArea; } // Down
@@ -717,10 +822,11 @@ void AEDU_CORE_CameraPawn::EdgeScroll()
 	}
 }
 
-void AEDU_CORE_CameraPawn::AutoScroll()
+void AEDU_CORE_SpectatorCamera::AutoScroll()
 { // Tick Function
 // Don't EdgeScroll if the mouse is outside the window.
 	UpdateMouseDirection();
+	FIntVector2 ScreenSize;
 	LocalController->GetViewportSize(ScreenSize.X, ScreenSize.Y);
 
 	// We need to normalize the movement according to ScreenSize.
@@ -745,8 +851,8 @@ void AEDU_CORE_CameraPawn::AutoScroll()
 	}
 }
 
-void AEDU_CORE_CameraPawn::FreeLook()
-{ FLOW_LOG_TICK
+void AEDU_CORE_SpectatorCamera::FreeLook()
+{ // FLOW_LOG_TICK
 	UpdateMouseDirection();
     
 	// Modifier Keys
@@ -772,8 +878,8 @@ void AEDU_CORE_CameraPawn::FreeLook()
 	);
 }
 
-void AEDU_CORE_CameraPawn::MouseDrag()
-{ FLOW_LOG_TICK
+void AEDU_CORE_SpectatorCamera::MouseDrag()
+{ // FLOW_LOG_TICK
 	UpdateMouseDirection();
 	
 	// Scale the speed of we zoom out or in.
@@ -793,14 +899,14 @@ void AEDU_CORE_CameraPawn::MouseDrag()
 // Functionality : Selection Controls
 //------------------------------------------------------------------------------
 
-void AEDU_CORE_CameraPawn::CopyEntitiesInHUDArray()
+void AEDU_CORE_SpectatorCamera::CopyEntitiesInHUDArray()
 { FLOW_LOG
 	SelectionArray = LocalHUD->GetSelectionRectangleArray();
 	SelectEntitiesInRectangle();
 	ResetHUDSelectionArray();
 }
 
-void AEDU_CORE_CameraPawn::ReviseSelection()
+void AEDU_CORE_SpectatorCamera::ReviseSelection()
 { FLOW_LOG
 	for (AEDU_CORE_SelectableEntity* Entity : LocalHUD->GetSelectionRectangleArray())
 	{
@@ -819,7 +925,7 @@ void AEDU_CORE_CameraPawn::ReviseSelection()
 	ResetHUDSelectionArray();
 }
 
-void AEDU_CORE_CameraPawn::ResetCameraSelectionArray()
+void AEDU_CORE_SpectatorCamera::ResetCameraSelectionArray()
 { FLOW_LOG
 	for(AEDU_CORE_SelectableEntity* Entity : SelectionArray)
 	{
@@ -831,7 +937,7 @@ void AEDU_CORE_CameraPawn::ResetCameraSelectionArray()
 	SelectionArray.Reset();
 }
 
-void AEDU_CORE_CameraPawn::ResetHUDSelectionArray() const
+void AEDU_CORE_SpectatorCamera::ResetHUDSelectionArray() const
 { FLOW_LOG
 	for(AEDU_CORE_SelectableEntity* Entity : LocalHUD->GetSelectionRectangleArray())
 	{
@@ -843,7 +949,7 @@ void AEDU_CORE_CameraPawn::ResetHUDSelectionArray() const
 	LocalHUD->GetSelectionRectangleArray().Reset();
 }
 
-void AEDU_CORE_CameraPawn::SelectEntitiesInRectangle()
+void AEDU_CORE_SpectatorCamera::SelectEntitiesInRectangle()
 { FLOW_LOG
 	for(AEDU_CORE_SelectableEntity* Entity : SelectionArray)
 	{
@@ -854,7 +960,7 @@ void AEDU_CORE_CameraPawn::SelectEntitiesInRectangle()
 	}
 }
 
-void AEDU_CORE_CameraPawn::CallCtrlGroup(const TArray<AEDU_CORE_SelectableEntity*>& CtrlGroupArray)
+void AEDU_CORE_SpectatorCamera::CallCtrlGroup(const TArray<AEDU_CORE_SelectableEntity*>& CtrlGroupArray)
 { FLOW_LOG
 	// Ready the Array.
 	if(SelectionArray.Num() > 0)
@@ -879,12 +985,11 @@ void AEDU_CORE_CameraPawn::CallCtrlGroup(const TArray<AEDU_CORE_SelectableEntity
 	}
 }
 
-
 //------------------------------------------------------------------------------
 // Functionality: Input Functions
 //------------------------------------------------------------------------------
 
-void AEDU_CORE_CameraPawn::Input_KeyMove(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_KeyMove(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	// Keyboard movement (aka WASD)
 	if(SpringArmComponent != nullptr && InputData != nullptr && !bMouseDrag)
@@ -899,7 +1004,7 @@ void AEDU_CORE_CameraPawn::Input_KeyMove(const FInputActionValue& InputActionVal
 	}
 }
 
-void AEDU_CORE_CameraPawn::Input_KeyRotate(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_KeyRotate(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(InputData != nullptr && ensure(InputActionValue.GetValueType() == EInputActionValueType::Axis1D))
 	{
@@ -920,7 +1025,7 @@ void AEDU_CORE_CameraPawn::Input_KeyRotate(const FInputActionValue& InputActionV
 	}
 }
 
-void AEDU_CORE_CameraPawn::Input_Zoom(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Zoom(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	/*------------------------------------------------------------------------------
 	  Since we track the mouse even after the player stops scrolling, as the
@@ -968,7 +1073,7 @@ void AEDU_CORE_CameraPawn::Input_Zoom(const FInputActionValue& InputActionValue)
 	}
 }
 
-void AEDU_CORE_CameraPawn::Input_MouseDrag_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_MouseDrag_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG // Make sure the Input Action in the Editor is a bool.
 	if(bFreeLook || bAutoScroll) {return; }
 	
@@ -976,7 +1081,7 @@ void AEDU_CORE_CameraPawn::Input_MouseDrag_Pressed(const FInputActionValue& Inpu
 	DisableMouseEvents();
 }
 
-void AEDU_CORE_CameraPawn::Input_MouseDrag_Released(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_MouseDrag_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG // Make sure the Input Action in the Editor is a bool.
 	if(bFreeLook || bAutoScroll) {return; }
 	
@@ -984,7 +1089,7 @@ void AEDU_CORE_CameraPawn::Input_MouseDrag_Released(const FInputActionValue& Inp
 	EnableMouseEvents();
 }
 
-void AEDU_CORE_CameraPawn::Input_FreeLook_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_FreeLook_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG // Make sure the Input Action in the Editor is a bool.
 	if(bMouseDrag || bAutoScroll) {return; }
 	
@@ -994,7 +1099,7 @@ void AEDU_CORE_CameraPawn::Input_FreeLook_Pressed(const FInputActionValue& Input
 	DisableMouseEvents();
 }
 
-void AEDU_CORE_CameraPawn::Input_FreeLook_Released(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_FreeLook_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG // Make sure the Input Action in the Editor is a bool.
 	if(bMouseDrag || bAutoScroll) {return; }
 	
@@ -1004,7 +1109,7 @@ void AEDU_CORE_CameraPawn::Input_FreeLook_Released(const FInputActionValue& Inpu
 	EnableInterpRotation();
 }
 
-void AEDU_CORE_CameraPawn::Input_AutoScroll_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_AutoScroll_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG // Make sure the Input Action in the Editor is a bool.
 	if(bFreeLook || bMouseDrag) {return; }
 	
@@ -1012,7 +1117,7 @@ void AEDU_CORE_CameraPawn::Input_AutoScroll_Pressed(const FInputActionValue& Inp
 	DisableMouseEvents();
 }
 
-void AEDU_CORE_CameraPawn::Input_AutoScroll_Released(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_AutoScroll_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG // Make sure the Input Action in the Editor is a bool.
 	if(bFreeLook || bMouseDrag) {return; }
 
@@ -1028,14 +1133,16 @@ void AEDU_CORE_CameraPawn::Input_AutoScroll_Released(const FInputActionValue& In
 // Functionality: Mouse Button Input functions
 //---------------------------------------------------------------------------
 
-void AEDU_CORE_CameraPawn::Input_Mouse_1_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
+	bMouse_1 = true;
 	// Save the current Mouse Position in the Hud, in case we want to draw a SelectionMarquee.
+	FVector2d MousePos;
 	LocalController->GetMousePosition(MousePos.X, MousePos.Y);
 	LocalHUD->DrawSelectionMarquee(MousePos);
 	
 	float CurrentTime = GetWorld()->GetTimeSeconds();
-	if (CurrentTime - LastClickTime > DoubleClickDelay)
+	if (CurrentTime - Mouse_1_StartTime > DoubleClickDelay)
 	{
 		FLOW_LOG_WARNING("Single Click")
 		if(ModifierKey != EEDU_CORE_InputModifierKey::Mod_1)
@@ -1044,7 +1151,7 @@ void AEDU_CORE_CameraPawn::Input_Mouse_1_Pressed(const FInputActionValue& InputA
 		}
 		
 		// Update the last click time
-		LastClickTime = CurrentTime;
+		Mouse_1_StartTime = CurrentTime;
 		return;
 	}
 	
@@ -1054,7 +1161,7 @@ void AEDU_CORE_CameraPawn::Input_Mouse_1_Pressed(const FInputActionValue& InputA
 	}
 }
 
-void AEDU_CORE_CameraPawn::Input_Mouse_1_DoubleClick()
+void AEDU_CORE_SpectatorCamera::Input_Mouse_1_DoubleClick()
 { FLOW_LOG_WARNING("Single Click")
 	LocalHUD->SearchFilter = SelectionArray[0]->GetClass(); // This is the actor we are searching for.
 	LocalHUD->bSearchWholeScreen = true; // This will make the Hud run a separate function in its DrawHUD().
@@ -1065,8 +1172,10 @@ void AEDU_CORE_CameraPawn::Input_Mouse_1_DoubleClick()
 	GetWorld()->GetTimerManager().SetTimer(WaitForHUD, this, &ThisClass::CopyEntitiesInHUDArray, 0.05f, false);
 }
 
-void AEDU_CORE_CameraPawn::Input_Mouse_1_Released(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
+	bMouse_1 = false;
+	
 	LocalHUD->StopDrawingSelectionMarquee();
 	if(LocalHUD->GetSelectionRectangleArray().Num() > 0)
 	{
@@ -1081,26 +1190,30 @@ void AEDU_CORE_CameraPawn::Input_Mouse_1_Released(const FInputActionValue& Input
 	}
 }
 
-void AEDU_CORE_CameraPawn::Input_Mouse_2_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mouse_2_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
+	bMouse_2 = true;
 }
 
-void AEDU_CORE_CameraPawn::Input_Mouse_2_Released(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mouse_2_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
+	bMouse_2 = false;
 }
 
-void AEDU_CORE_CameraPawn::Input_Mouse_3_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mouse_3_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
+	bMouse_3 = true;
 }
 
-void AEDU_CORE_CameraPawn::Input_Mouse_3_Released(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mouse_3_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
+	bMouse_3 = false;
 }
 
 //---------------------------------------------------------------------------
 // CTRL Group Assignment
 //---------------------------------------------------------------------------
-void AEDU_CORE_CameraPawn::Ctrl_Group_1_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Ctrl_Group_1_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 1
@@ -1115,7 +1228,7 @@ void AEDU_CORE_CameraPawn::Ctrl_Group_1_Pressed(const FInputActionValue& InputAc
 	}
 }
 
-void AEDU_CORE_CameraPawn::Ctrl_Group_2_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Ctrl_Group_2_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
@@ -1130,7 +1243,7 @@ void AEDU_CORE_CameraPawn::Ctrl_Group_2_Pressed(const FInputActionValue& InputAc
 	}
 }
 
-void AEDU_CORE_CameraPawn::Ctrl_Group_3_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Ctrl_Group_3_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
@@ -1144,7 +1257,7 @@ void AEDU_CORE_CameraPawn::Ctrl_Group_3_Pressed(const FInputActionValue& InputAc
 	}
 }
 
-void AEDU_CORE_CameraPawn::Ctrl_Group_4_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Ctrl_Group_4_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
@@ -1158,7 +1271,7 @@ void AEDU_CORE_CameraPawn::Ctrl_Group_4_Pressed(const FInputActionValue& InputAc
 	}
 }
 
-void AEDU_CORE_CameraPawn::Ctrl_Group_5_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Ctrl_Group_5_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
@@ -1172,7 +1285,7 @@ void AEDU_CORE_CameraPawn::Ctrl_Group_5_Pressed(const FInputActionValue& InputAc
 	}
 }
 
-void AEDU_CORE_CameraPawn::Ctrl_Group_6_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Ctrl_Group_6_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
@@ -1186,7 +1299,7 @@ void AEDU_CORE_CameraPawn::Ctrl_Group_6_Pressed(const FInputActionValue& InputAc
 	}
 }
 
-void AEDU_CORE_CameraPawn::Ctrl_Group_7_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Ctrl_Group_7_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
@@ -1200,7 +1313,7 @@ void AEDU_CORE_CameraPawn::Ctrl_Group_7_Pressed(const FInputActionValue& InputAc
 	}
 }
 
-void AEDU_CORE_CameraPawn::Ctrl_Group_8_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Ctrl_Group_8_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
@@ -1214,7 +1327,7 @@ void AEDU_CORE_CameraPawn::Ctrl_Group_8_Pressed(const FInputActionValue& InputAc
 	}
 }
 
-void AEDU_CORE_CameraPawn::Ctrl_Group_9_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Ctrl_Group_9_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
@@ -1228,7 +1341,7 @@ void AEDU_CORE_CameraPawn::Ctrl_Group_9_Pressed(const FInputActionValue& InputAc
 	}
 }
 
-void AEDU_CORE_CameraPawn::Ctrl_Group_0_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Ctrl_Group_0_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
@@ -1246,55 +1359,55 @@ void AEDU_CORE_CameraPawn::Ctrl_Group_0_Pressed(const FInputActionValue& InputAc
 // Functionality: Modifier Keys
 //------------------------------------------------------------------------------
 
-void AEDU_CORE_CameraPawn::Input_Mod_1_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mod_1_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	bMod_1 = true;
 	SetModifierKey();
 }
 
-void AEDU_CORE_CameraPawn::Input_Mod_1_Released(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mod_1_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	bMod_1 = false;
 	SetModifierKey();
 }
 
-void AEDU_CORE_CameraPawn::Input_Mod_2_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mod_2_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	bMod_2 = true;
 	SetModifierKey();
 }
 
-void AEDU_CORE_CameraPawn::Input_Mod_2_Released(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mod_2_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	bMod_2 = false;
 	SetModifierKey();
 }
 
-void AEDU_CORE_CameraPawn::Input_Mod_3_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mod_3_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	bMod_3 = true;
 	SetModifierKey();
 }
 
-void AEDU_CORE_CameraPawn::Input_Mod_3_Released(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mod_3_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	bMod_3 = false;
 	SetModifierKey();
 }
 
-void AEDU_CORE_CameraPawn::Input_Mod_4_Pressed(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mod_4_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	bMod_4 = true;
 	SetModifierKey();
 }
 
-void AEDU_CORE_CameraPawn::Input_Mod_4_Released(const FInputActionValue& InputActionValue)
+void AEDU_CORE_SpectatorCamera::Input_Mod_4_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	bMod_4 = false;
 	SetModifierKey();
 }
 
-void AEDU_CORE_CameraPawn::SetModifierKey()
+void AEDU_CORE_SpectatorCamera::SetModifierKey()
 { FLOW_LOG
 	/*--------------------------------------------------------------------------------
 	  Note that this evaluation will start over every time a new key is pressed,
@@ -1370,10 +1483,10 @@ void AEDU_CORE_CameraPawn::SetModifierKey()
 }
 
 //---------------------------------------------------------------------------
-// ShortCuts
+// Functionality: ShortCuts
 //---------------------------------------------------------------------------
 
-void AEDU_CORE_CameraPawn::SelectAll()
+void AEDU_CORE_SpectatorCamera::SelectAll()
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)
 	{
@@ -1384,4 +1497,3 @@ void AEDU_CORE_CameraPawn::SelectAll()
 		GetWorld()->GetTimerManager().SetTimer(WaitForHUD, this, &ThisClass::CopyEntitiesInHUDArray, 0.05f, false);
 	}
 }
-

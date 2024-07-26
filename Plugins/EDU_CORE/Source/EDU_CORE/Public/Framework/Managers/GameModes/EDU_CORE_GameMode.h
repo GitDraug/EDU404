@@ -6,8 +6,11 @@
 #include "GameFramework/GameModeBase.h"
 #include "EDU_CORE_GameMode.generated.h"
 
+class AEDU_CORE_MobileEntity;
+class AEDU_CORE_AbstractEntity;
+class AEDU_CORE_PhysicalEntity;
 class URTS_CORE_GameDataAsset;
-class AEDU_CORE_TickingEntity;
+
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
 --------------------------------------------------------------------------------
@@ -37,32 +40,56 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 	
-	
 //------------------------------------------------------------------------------
 // Public API
 //------------------------------------------------------------------------------
 public:
-	void AddToTickingEntityArray(AEDU_CORE_TickingEntity* TickingEntity);
+	// Aggregated Tick Arrays
+	void AddToAbstractEntityArray(AEDU_CORE_AbstractEntity* AbstractEntity);
+	void AddToPhysicalEntityArray(AEDU_CORE_PhysicalEntity* PhysicalEntity);
+	void AddToMobileEntityArray(AEDU_CORE_MobileEntity* MobileEntity);
 	
+	FColor DeltaTimeDisplayColor;
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
+protected:
+	// Give the server access to all classes that have aggregated tick.
+	
+	/*---------------------- Server-Side Aggregated Tick ---------------------------
+	  This tick function allows us to aggregate ticks server-side. These are
+	  excellent for batch executions, such as blending occasional Server updates.
+
+	  EntityBatch: Represents the number of entities to process in each tick.
+	  The loop will run EntityBatch times, allowing for controlled batch processing
+	  of entities.
+	  
+	  Index tracks which element in the EntityArray is being processed.
+	------------------------------------------------------------------------------*/
 	UPROPERTY()
-	TArray<AEDU_CORE_TickingEntity*> TickingEntityArray;
-	
-	// Index that tracks which entity in TickingEntityArray is being processed.
-	int32 CurrentEntity = 0;
+	TArray<AEDU_CORE_AbstractEntity*> AbstractEntityArray;
 
-	// EntityBatch: Represents the number of entities to process in each tick.
-	// The loop will run EntityBatch times, allowing for controlled batch
-	// processing of entities.
-	int32 EntityBatch = 100;
+	UPROPERTY(EditDefaultsOnly)
+	int32 AbstractEntityBatch = 100;
+	int32 AbstractEntityIndex = 0;
 	
-	bool Iticked = false;
+	UPROPERTY()
+	TArray<AEDU_CORE_PhysicalEntity*> PhysicalEntityArray;
 
+	UPROPERTY(EditDefaultsOnly)
+	int32 PhysicalEntityBatch = 10;
+	int32 PhysicalEntityIndex = 0;
+
+	UPROPERTY()
+	TArray<AEDU_CORE_MobileEntity*> MobileEntityArray;
+
+	UPROPERTY(EditDefaultsOnly)
+	int32 MobileEntityBatch = 50;
+	int32 MobileEntityIndex = 0;
+
+	int32 FrameCounter;
 //------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------
-	// void ParallelTick(AEDU_CORE_TickingEntity* Entity) const;
 
 };

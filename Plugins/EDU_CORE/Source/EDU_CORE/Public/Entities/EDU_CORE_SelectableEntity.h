@@ -3,17 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
 #include "EDU_CORE_SelectableEntity.generated.h"
 
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
 --------------------------------------------------------------------------------
   Base class of entities that can be detected and selected by the cursor.
-  
+
+  Allows the entity to be selected by the Camera UI.
 ------------------------------------------------------------------------------*/
 
-UCLASS()
+UCLASS(Abstract)
 class EDU_CORE_API AEDU_CORE_SelectableEntity : public AActor
 {
 	GENERATED_BODY()
@@ -51,6 +51,12 @@ public:
 // Components
 //------------------------------------------------------------------------------
 public:
+	UPROPERTY(EditAnywhere,
+	Category = "Selection",
+	meta = (DisplayName = "Can be selected",
+	ToolTip = "Allows this entity to be detected and selected by the Selection Marquee in the HUD."))
+	bool bCanBeSelected = true;
+	
 	bool bMouseHighlighted = false;
 	bool bRectangleHighlighted = false;
 	bool bSelected = false;

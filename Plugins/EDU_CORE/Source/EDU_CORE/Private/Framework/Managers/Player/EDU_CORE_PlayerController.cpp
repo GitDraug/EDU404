@@ -2,12 +2,15 @@
 
 #include "Framework/Player/EDU_CORE_PlayerController.h"
 #include "Framework/Data/DataAssets/EDU_CORE_ControllerInputDataAsset.h"
-#include "Framework/Data/FLOWLOG/FLOWLOG_PLAYER.h"
+#include "Framework/Data/FLOWLOGS/FLOWLOG_PLAYER.h"
 
 #include "UObject/ScriptInterface.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Entities/EDU_CORE_SelectableEntity.h"
+#include "Entities/EDU_CORE_AbstractEntity.h"
+#include "Entities/EDU_CORE_PhysicalEntity.h"
+#include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
 
 //------------------------------------------------------------------------------
 // Initialization & Object lifetime management
@@ -38,81 +41,85 @@ void AEDU_CORE_PlayerController::BeginPlay()
 }
 
 void AEDU_CORE_PlayerController::PlayerTick(float DeltaTime)
-{ FLOW_LOG_TICK
+{
 	Super::PlayerTick(DeltaTime);
 	
-	CursorTrace();
-}
+	/*---------------------- Client-Side Aggregated Tick --------------------------*/
+	if(GetNetMode() == NM_Client)
+	{
+		/*-------------------------------------------------------------------------------
+		  Physics updates!
+		  
+		<!> TODO
+			For Optimization these can be split between ParallelFor and for, running calcs on ParallelFor and SetActor_X() on the gamethread using Asycn
+				https://georgy.dev/posts/parallel-for-loop/
+				https://georgy.dev/posts/async-task/
+		------------------------------------------------------------------------------*/
+		for (AEDU_CORE_PhysicalEntity* PhysicalEntity : PhysicalEntityArray)
+		{
+			// Check if the entity pointer is valid (not null)
+			if (PhysicalEntity)
+			{
+				// If the entity pointer is valid, call the ParallelTick function on the entity
+				PhysicalEntity->ClientLerpLocation(DeltaTime);
+			}
+		}
+		
+		for (AEDU_CORE_PhysicalEntity* PhysicalEntity : PhysicalEntityArray)
+		{
+			// Check if the entity pointer is valid (not null)
+			if (PhysicalEntity)
+			{
+				// If the entity pointer is valid, call the ParallelTick function on the entity
+				PhysicalEntity->ClientLerpRotation(DeltaTime);
+			}
+		}
+		
+		for (AEDU_CORE_PhysicalEntity* PhysicalEntity : PhysicalEntityArray)
+		{
+			// Check if the entity pointer is valid (not null)
+			if (PhysicalEntity)
+			{
+				// If the entity pointer is valid, call the ParallelTick function on the entity
+				PhysicalEntity->ClientLerpScale(DeltaTime);
+			}
+		}
+	}
+	
+}	
 
 //------------------------------------------------------------------------------
 // Functionality: Utility
 //------------------------------------------------------------------------------
 
-void AEDU_CORE_PlayerController::CursorTrace()
-{ FLOW_LOG_TICK
-	
-	// TODO: It would be best to make a custom CollisionProfile or channel for only selectables.
-	FHitResult CursorHit;
-	GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
-	
-	if(!CursorHit.bBlockingHit) { return; }
-	
-	/*---------------- Pointers for Selectable interface in UNIT plugin ------------
-	  TScriptInterface allows us to do some abstract sugar; we don't need to cast
-	  CursorHit.GetActor() to check it it can be molded into the interface class
-	  we use, it's checked automagically. =)
-	  
-		TScriptInterface<IEDU_CORE_Selectable> LastActor;
-		CurrentActor = TScriptInterface<IEDU_CORE_Selectable>(CursorHit.GetActor());
-
-	  <!> Draug from the future here: I opted for a ASelectableEntity pointer
-	  instead because using it as a base class streamlined the functions, rather
-	  than using an interface,
-	------------------------------------------------------------------------------*/
-	LastActor = CurrentActor;
-	CurrentActor = Cast<AEDU_CORE_SelectableEntity>(CursorHit.GetActor());
-	/*------------------------------------------------------------------------------
-	  Line Trace from Cursor, possible scenarios:
-		  1. LastActor == null && CurrentActor && null
-				Do Nothing.
-		  2. LastActor == null && CurrentActor is valid
-				Highlight CurrentActor
-		  3. LastActor is valid && CurrentActor && null
-				Unhighlight LastActor
-		  4. Both actors are valid, but LastActor != CurrentActor
-				Unhighlight LastActor, Highlight CurrentActor
-		  5. Both actors are valid, and LastActor == CurrentActor
-				Do nothing.
-	------------------------------------------------------------------------------*/
-	if(LastActor == nullptr)
+void AEDU_CORE_PlayerController::AddToAbstractEntityArray(AEDU_CORE_AbstractEntity* AbstractEntity)
+{ FLOW_LOG
+	// Loop through each entity pointer in the TickingEntityArray (True Client Only. ListenServers play directly on the server.)
+	if(GetNetMode() == NM_Client)
 	{
-		if(CurrentActor == nullptr)
+		if (AbstractEntity)  // Check if the Entity is valid
 		{
-			// Scenario 1; Do Nothing.
-		}
-		else
-		{
-			CurrentActor->MouseHighlightActor(); // Scenario 2: Highlight CurrentActor
-		}
-	}
-	else // LastActor is valid...
-	{   
-		if(CurrentActor == nullptr) 
-		{
-			LastActor->MouseUnHighlightActor(); // Scenario 3: LastActor is valid && CurrentActor && null
-		}
-		else //  Both actors are valid...
-		{
-			if(LastActor != CurrentActor) // ...but LastActor != CurrentActor
-			{  // Scenario 4:
-				LastActor->MouseUnHighlightActor();
-				CurrentActor->MouseHighlightActor();
-			}
-			// Else:Both actors are valid, and LastActor == CurrentActor
-			// Scenario 5: Do nothing.
+			AbstractEntityArray.AddUnique(AbstractEntity);
+			UE_LOG(FLOWLOG_CATEGORY, Log, TEXT("Entity added: %s"), *AbstractEntity->GetName());
 		}
 	}
 }
+
+void AEDU_CORE_PlayerController::AddToPhysicalEntityArray(AEDU_CORE_PhysicalEntity* PhysicalEntity)
+{ FLOW_LOG
+	// Loop through each entity pointer in the TickingEntityArray (Client Only)
+	if(GetNetMode() == NM_Client)
+	{
+		if (PhysicalEntity) // Check if the Entity is valid
+		{
+			// Add the entity to the TArray
+			PhysicalEntityArray.AddUnique(PhysicalEntity); // Adds the pointer to the array
+			// Optionally, log the addition
+			UE_LOG(FLOWLOG_CATEGORY, Log, TEXT("Entity added: %s"), *PhysicalEntity->GetName());
+		}
+	}
+}
+
 	
 //------------------------------------------------------------------------------
 // Input

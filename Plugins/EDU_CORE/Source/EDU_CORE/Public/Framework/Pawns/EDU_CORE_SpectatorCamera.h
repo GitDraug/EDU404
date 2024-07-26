@@ -7,7 +7,7 @@
 #include "GameFramework/Pawn.h"
 
 #include "Framework/Data/DataTypes/EDU_CORE_DataTypes.h"
-#include "EDU_CORE_CameraPawn.generated.h"
+#include "EDU_CORE_SpectatorCamera.generated.h"
 
 struct FInputActionValue;
 class USceneComponent;
@@ -30,8 +30,8 @@ struct FCTRL_Group
 	GENERATED_BODY()
 	
 	// Default constructor
-	FCTRL_Group()
-		: Leader(TEXT(""))
+	FCTRL_Group() : // Init list
+	Leader(TEXT(""))
 	{}
 	
 	// An array of names
@@ -46,8 +46,10 @@ struct FCTRL_Group
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
 --------------------------------------------------------------------------------
-  Pawn is the base class of all actors that can be possessed by players or AI.
-  They are the physical representations of players and creatures in a level.
+  The SpectatorCamera gives a player a camera that can navigate around the map,
+  select and review happenings, but it can't send any commands.
+
+  For a Camera that can Command and Control, use the C2 Camera
 
   <!> TODO: Make sure the Trace Channel is correct.
 
@@ -55,7 +57,7 @@ struct FCTRL_Group
   below ground all the time if you do.
 ------------------------------------------------------------------------------*/
 UCLASS(Abstract)
-class EDU_CORE_API AEDU_CORE_CameraPawn : public APawn
+class EDU_CORE_API AEDU_CORE_SpectatorCamera : public APawn
 {
 	GENERATED_BODY()
 
@@ -63,7 +65,7 @@ class EDU_CORE_API AEDU_CORE_CameraPawn : public APawn
 // Construction & Init
 //------------------------------------------------------------------------------
 public:
-	AEDU_CORE_CameraPawn(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	AEDU_CORE_SpectatorCamera(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 //------------------------------------------------------------------------------
 // Object Lifetime Management
@@ -92,34 +94,13 @@ protected:
 
 	// Used to initialize the variables in the DataAsset
 	virtual void SetPawnDefaults();
-	
+
 //------------------------------------------------------------------------------
-// Components
-//------------------------------------------------------------------------------
-private:
-	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<USceneComponent> CameraAnchor;
-
-	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<USpringArmComponent> SpringArmComponent;
-	
-	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UCameraComponent> CameraComponent;
-
-protected:
-	// Holds Input Data with keys and functions, we need to set it in the BP.
-	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "EDU_CORE Settings")
-	TObjectPtr<UDataAsset> ImportedInputDataAsset;
-
-private:
-	UPROPERTY()
-  	TObjectPtr<UEDU_CORE_CameraPawnInputDataAsset> InputData;
-
-	UPROPERTY()
-	TObjectPtr<AEDU_CORE_PlayerController> LocalController;
-	
-	UPROPERTY()
-	TObjectPtr<AEDU_CORE_HUD> LocalHUD;
+// Get/Set
+//------------------------------------------------------------------------------  
+public:
+	FORCEINLINE virtual FVector GetCursorWorldPos() const { return CursorWorldPos; }
+	FORCEINLINE virtual FVector GetSavedCursorWorldPos() const { return SavedCursorWorldPos; }
 
 //------------------------------------------------------------------------------
 // Public Camera Settings
@@ -148,8 +129,78 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Movement")
 	float DoubleClickDelay = 0.25f;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Movement")
+	float MousePressDelay = 0.2f;
 	
-private:
+//------------------------------------------------------------------------------
+// Components
+//------------------------------------------------------------------------------
+protected:
+	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USceneComponent> CameraAnchor;
+
+	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USpringArmComponent> SpringArmComponent;
+	
+	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCameraComponent> CameraComponent;
+	
+	// Holds Input Data with keys and functions, we need to set it in the BP.
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "EDU_CORE Settings")
+	TObjectPtr<UDataAsset> ImportedInputDataAsset;
+	
+	UPROPERTY()
+  	TObjectPtr<UEDU_CORE_CameraPawnInputDataAsset> InputData;
+
+	UPROPERTY()
+	TObjectPtr<AEDU_CORE_PlayerController> LocalController;
+	
+	UPROPERTY()
+	TObjectPtr<AEDU_CORE_HUD> LocalHUD;
+	
+	/*---------------- Pointers for Selectable interface in UNIT plugin ------------
+	  TScriptInterface is essentially, a fancy pointer. It's a template class that
+	  provides a way to work with interface types in a manner that is compatible
+	  with both C++ and the Engine reflection system (UObject system).
+
+	  It wraps around a UObject that implements a given interface, allowing you to
+	  call the interface methods directly and ensuring type safety.
+
+	  Make sure the UNIT Plugin is included in this plugin as a private dependency.
+	------------------------------------------------------------------------------*/
+	//TScriptInterface<IEDU_CORE_Selectable> LastActor; // Last Actor under Cursor
+	//TScriptInterface<IEDU_CORE_Selectable> CurrentActor; // Current Actor under Cursor
+	
+	TObjectPtr<AEDU_CORE_SelectableEntity> LastActor;
+	TObjectPtr<AEDU_CORE_SelectableEntity> CurrentActor;
+
+	//---------------------------------------------------------------------------
+	// Mouse data
+	//---------------------------------------------------------------------------
+	// For passing the cursor 2D position in the 3D world.
+	FVector2d SavedMousePos;
+	
+	FVector CursorWorldPos;
+	FVector SavedCursorWorldPos; 
+	FRotator CursorRotation; // CursorWorldPos - SavedCursorWorldPos).Rotation()
+
+	// A YX struct to save the Mouse movement Input, using APlayerController->GetInputMouseDelta();
+	FVector2d MouseDirection {0.f, 0.f};
+	
+	float Mouse_2_timer;
+	float Mouse_1_StartTime;
+	float Mouse_2_PressedTime;
+	
+	//---------------------------------------------------------------------------
+	// Tick Managment
+	//---------------------------------------------------------------------------
+	// For limiting tick functions to once every X frame.
+	int8 FrameCounter = 0;
+
+	// Ready to tick?
+	bool bIsInitialized = false;
+	
 	//---------------------------------------------------------------------------
 	// Group Assignment
 	//---------------------------------------------------------------------------
@@ -168,9 +219,9 @@ private:
 	FCTRL_Group CTRL_Group_9;
 	FCTRL_Group CTRL_Group_0;
 	
-	// Ready to tick?
-	bool bIsInitialized = false;
-
+	//---------------------------------------------------------------------------
+	// Camera Tracing
+	//---------------------------------------------------------------------------
 	// If we can't trace the ground, we can use the end of the trace.
 	FVector CameraTraceEndLocation;
 	
@@ -180,17 +231,25 @@ private:
 	// Used for interpolation
 	FRotator TargetRotation;
 	FVector TargetLocation;
-
-	// A YX struct to save the Mouse movement Input, using APlayerController->GetInputMouseDelta();
-	FVector2d MouseDirection {0.f, 0.f};
 	
-	// We need to store the Screen Size for Camera Edge Scrolling
-	FIntVector2 ScreenSize;
+	//------------------------------------------------------------------------------
+	// Zoom tracking Data
+	//------------------------------------------------------------------------------
+	UPROPERTY()
+	float ZoomTraceLength; // Distance to trace for ground.
+	
+	UPROPERTY()
+	float ZoomDistance; // Distance traveled per key press
+	
+	// The length SpringArmComponent->TargetArmLength is targeting.
+	float TargetZoom;
 
-	// We also need to store the Mouse Position for various functions cursor-based functions
-	FVector2d MousePos;
-	FVector2d SavedMousePos;
-
+	// Default settings
+	bool bZoomIn = false;
+	bool bZoomOut = false;
+	bool bZoomFocusOn = true;
+	bool bZoomFocusFinished = true;
+	
 	//------------------------------------------------------------------------------
 	// EdgeScroll settings
 	//------------------------------------------------------------------------------
@@ -199,11 +258,6 @@ private:
 
 	// EdgeScroll Calculations can be used for Other functions too
 	FVector2d ScrollDirection;
-	
-	float DistanceToLeftEdge;
-	float DistanceToRightEdge;
-	float DistanceToTopEdge;
-	float DistanceToBottomEdge;
 	
 	//------------------------------------------------------------------------------
 	// Movement States
@@ -220,27 +274,6 @@ private:
 	
 	// Used for interpolation while no key is pressed.
 	float InterpTimer;
-	
-	//------------------------------------------------------------------------------
-	// Zoom tracking Data
-	//------------------------------------------------------------------------------
-	UPROPERTY()
-	float ZoomDistance; // Distance traveled per key press
-
-	UPROPERTY()
-	float ZoomTraceLength; // Distance to trace for ground.
-	
-	// The length SpringArmComponent->TargetArmLength is targeting.
-	float TargetZoom;
-	
-	FHitResult CameraTraceResult;
-	FCollisionQueryParams CameraTraceCollisionParams;
-
-	// Default settings
-	bool bZoomIn = false;
-	bool bZoomOut = false;
-	bool bZoomFocusOn = true;
-	bool bZoomFocusFinished = true;
 
 	//------------------------------------------------------------------------------
 	// States for the modifier Keys to manage USER_InputModifierKey
@@ -251,9 +284,9 @@ private:
 	bool bMod_4 = false;
 	
 	/*--------------------------------------------------------------------------------
-	Note that the bools are for the controller class only. The active key, or active
-	combo of keys is set in the enum USER_InputModifierKey. This means that
-	other classes only need to keep track of the enum state, instead of 4 bool.
+	  Note that the bools are for the controller class only. The active key, or active
+	  combo of keys is set in the enum USER_InputModifierKey. This means that other
+	  classes only need to keep track of the enum state, instead of several bool.
 	-------------------------------------------------------------------------------*/
 public:
 	EEDU_CORE_InputModifierKey ModifierKey;
@@ -268,12 +301,10 @@ protected:
 	void CopyEntitiesInHUDArray(); 
 	void CallCtrlGroup(const TArray<AEDU_CORE_SelectableEntity*>& CtrlGroupArray);
 	void ReviseSelection(); 	// Remove an Entity from selection, or adds it if not already present. 
-
+	
 //------------------------------------------------------------------------------
 // Functionality : Camera Controls
 //------------------------------------------------------------------------------
-protected:
-	
 	// Uses various calculations to Move, Zoom and Rotate each frame.
 	void UpdateCameraRotation(const float DeltaTime) const;
 	void UpdateCameraLocation(const float DeltaTime);
@@ -283,6 +314,8 @@ protected:
 	// Utility
 	void MoveCameraAnchor(const FVector2d& Direction, const float& Speed);
 	void CameraTrace();
+	void CursorTrace();
+	
 	void UpdateMouseDirection();
 	void ResetCamera();
 	
@@ -357,6 +390,17 @@ protected:
 
 	virtual void Input_Mouse_3_Pressed	(const FInputActionValue& InputActionValue);
 	virtual void Input_Mouse_3_Released	(const FInputActionValue& InputActionValue);
+
+public:
+	// Keep track of Mouse keys for combos
+	bool bMouse_1 = false;
+	bool bMouse_2 = false;
+	bool bMouse_3 = false;
+
+protected:
+	// Mouse Specials
+	virtual void Input_Mouse_1_DoubleClick();
+	bool bMouse_1_DoubleClick;
 	
 	//---------------------------------------------------------------------------
 	// CTRL Group Assignment
@@ -387,16 +431,12 @@ protected:
 	virtual void Input_Mod_4_Pressed		(const FInputActionValue& InputActionValue);
 	virtual void Input_Mod_4_Released		(const FInputActionValue& InputActionValue);
 
-	// Update EEDU_CORE_InputModifierKey
+	// Update Modifier keys
 	virtual void SetModifierKey();
 
 	//---------------------------------------------------------------------------
 	// ShortCuts
 	//---------------------------------------------------------------------------
-	virtual void Input_Mouse_1_DoubleClick(); // Selects all entities of the same class
-	bool bMouse_1_DoubleClick;
-	float LastClickTime;
-	
 	virtual void SelectAll(); // TODO: Needs to check owner, else it will select every entity on the map.
 	
 };

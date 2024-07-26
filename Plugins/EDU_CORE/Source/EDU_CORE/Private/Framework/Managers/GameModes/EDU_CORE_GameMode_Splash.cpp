@@ -4,7 +4,7 @@
 #include "Framework/Managers/GameModes/EDU_CORE_GameMode_Splash.h"
 
 #include "Framework/Data//DataTables/EDU_CORE_TitleScreensTable.h"
-#include "Framework/Data/FLOWLOG/FLOWLOG_MANAGERS.h"
+#include "Framework/Data/FLOWLOGS/FLOWLOG_MANAGERS.h"
 #include "Kismet/GameplayStatics.h"
 
 //------------------------------------------------------------------------------

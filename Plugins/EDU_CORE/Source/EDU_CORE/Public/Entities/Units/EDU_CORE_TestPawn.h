@@ -3,8 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Entities/EDU_CORE_TickingEntity.h"
+#include "Entities/EDU_CORE_MobileEntity.h"
+#include "Entities/EDU_CORE_PhysicalEntity.h"
 #include "GameFramework/Pawn.h"
+#include "Interfaces/EDU_CORE_Selectable.h"
 #include "EDU_CORE_TestPawn.generated.h"
 
 /*------------------------------------------------------------------------------
@@ -12,7 +14,7 @@
 ------------------------------------------------------------------------------*/
 
 UCLASS()
-class EDU_CORE_API AEDU_CORE_TestPawn : public AEDU_CORE_TickingEntity
+class EDU_CORE_API AEDU_CORE_TestPawn : public AEDU_CORE_MobileEntity
 {
 	GENERATED_BODY()
 	
@@ -29,8 +31,8 @@ public:
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-	virtual void ParallelTick() override;
-
+	
+	FVector MyPos;
 
 //------------------------------------------------------------------------------
 // Components

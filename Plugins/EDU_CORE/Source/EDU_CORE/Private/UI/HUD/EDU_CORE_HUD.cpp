@@ -3,7 +3,8 @@
 
 #include "UI/HUD/EDU_CORE_HUD.h"
 #include "EngineUtils.h"
-#include "Framework/Data/FLOWLOG/FLOWLOG_UI.h"
+#include "Framework/Data/FLOWLOGS/FLOWLOG_UI.h"
+#include "Interfaces/EDU_CORE_Selectable.h"
 
 //------------------------------------------------------------------------------
 // Construction & Init
@@ -17,9 +18,9 @@ AEDU_CORE_HUD::AEDU_CORE_HUD(const FObjectInitializer& ObjectInitializer) : Supe
 // Functionality
 //------------------------------------------------------------------------------
 void AEDU_CORE_HUD::DrawHUD()
-{ FLOW_LOG_TICK // Needed?
+{ // FLOW_LOG_TICK // Needed?
 	// Super::DrawHUD();
-	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Blue, FString::Printf(TEXT("Elements in SelectionRectangleArray: %d "), SelectionRectangleArray.Num()));
+	GEngine->AddOnScreenDebugMessage(4, GetWorld()->DeltaTimeSeconds, FColor::Blue, FString::Printf(TEXT("Elements in SelectionRectangleArray: %d "), SelectionRectangleArray.Num()));
 
 	if(bSearchWholeScreen)
 	{
@@ -29,8 +30,7 @@ void AEDU_CORE_HUD::DrawHUD()
 			SearchFilter,
 			FVector2d(0.f,0.f),
 			FVector2D (static_cast<float>(ScreenSize.X),static_cast<float>(ScreenSize.Y)),
-			SelectionRectangleArray,
-			true
+			SelectionRectangleArray
 		);
 
 		// Reset
@@ -38,18 +38,6 @@ void AEDU_CORE_HUD::DrawHUD()
 	}
 	
 	if(!bMouseDraw) { return; }
-	
-	// We want to empty the SelectionArray an UnHighlight any actor not inside the SelectionRectangle.
-	if(SelectionRectangleArray.Num() > 0)
-	{
-		for(AEDU_CORE_SelectableEntity* Entity : SelectionRectangleArray)
-		{
-			if(Entity)
-			{
-				Entity->UnRectangleHighlightActor();
-			}
-		}
-	}
 	
 	// Update CurrentMousePosition.
 	GetOwningPlayerController()->GetMousePosition(CurrentMousePos.X, CurrentMousePos.Y);
@@ -84,20 +72,50 @@ void AEDU_CORE_HUD::DrawHUD()
 		CurrentMousePos.X, CurrentMousePos.Y,
 		FrameColor,
 		FrameThickness);
+
+	/*------------------------------------------------------------------------------
+	  DetectEntitiesInSelectionRectangle() is a heavy process, involving getting
+	  all actors in the entire world and filtering out everything not in the
+	  rectangle. We don't need to do this every frame.
+
+	  The FrameCounter measures frames passed since we last called the function.
+
+	  TODO: It would even be better to filter out actors that don't use an interface
+	  rather than basing is on selecteble entity.
+	------------------------------------------------------------------------------*/
+	if(FrameCounter > 10)
+	{
+		FrameCounter++;
+		return;
+	}
+	
+	// We want to empty the SelectionArray an UnHighlight any actor not inside the SelectionRectangle.
+	if(SelectionRectangleArray.Num() > 0)
+	{
+		for(AEDU_CORE_SelectableEntity* Entity : SelectionRectangleArray)
+		{
+			if(Entity)
+			{
+				Entity->UnRectangleHighlightActor();
+			}
+		}
+	}
 	
 	DetectEntitiesInSelectionRectangle(
 		AEDU_CORE_SelectableEntity::StaticClass(),
 		InitialMousePos,
 		CurrentMousePos,
-		SelectionRectangleArray,
-		true
+		SelectionRectangleArray
 	);
+	
+	FrameCounter = 0;
 }
 
-void AEDU_CORE_HUD::DetectEntitiesInSelectionRectangle(const TSubclassOf<class AEDU_CORE_SelectableEntity>& ClassFilter, const FVector2D& FirstPoint, const FVector2D& SecondPoint, TArray<AEDU_CORE_SelectableEntity*>& OutEntityArray, bool bIncludeNonCollidingComponents) const
+
+void AEDU_CORE_HUD::DetectEntitiesInSelectionRectangle(const TSubclassOf<class AEDU_CORE_SelectableEntity>& ClassFilter, const FVector2D& FirstPoint, const FVector2D& SecondPoint, TArray<AEDU_CORE_SelectableEntity*>& OutEntityArray) const
 { FLOW_LOG
     OutEntityArray.Reset();
-
+	
     // Create Selection Rectangle from Points
     FBox2D SelectionRectangle(ForceInit);
     SelectionRectangle += FirstPoint;
@@ -116,13 +134,17 @@ void AEDU_CORE_HUD::DetectEntitiesInSelectionRectangle(const TSubclassOf<class A
         FVector(-1.f, -1.f, -1.f)
     };
 
-    // For Each Pawn of the Class Filter Type
+	// For Each Pawn of the Class Filter Type
     for (TActorIterator Itr(GetWorld(), ClassFilter); Itr; ++Itr)
     {
         AEDU_CORE_SelectableEntity* EachEntity = *Itr;
+    	
+    	// Skip this entity and continue to the next if it is invalid
+    	if(!EachEntity) { continue; }
+    	if(!EachEntity->bCanBeSelected) {continue; }
 
         // Get Pawn Bounds
-        const FBox EachEntityBounds = EachEntity->GetComponentsBoundingBox(bIncludeNonCollidingComponents); // All Components?
+        const FBox EachEntityBounds = EachEntity->GetComponentsBoundingBox();
 
         // Center
         const FVector BoxCenter = EachEntityBounds.GetCenter();
@@ -132,6 +154,7 @@ void AEDU_CORE_HUD::DetectEntitiesInSelectionRectangle(const TSubclassOf<class A
 
         // Build 2D bounding box of pawn in screen space
         FBox2D ActorBox2D(ForceInit);
+    	
         for (uint8 BoundsPointItr = 0; BoundsPointItr < 8; BoundsPointItr++)
         {
             // Project vert into screen space
@@ -144,16 +167,12 @@ void AEDU_CORE_HUD::DetectEntitiesInSelectionRectangle(const TSubclassOf<class A
         }
         
         // Only consider pawn boxes that have valid points inside
-        if (ActorBox2D.bIsValid)
-        {
-        	// Partial Intersection with Projected Pawn Bounds
-        	if (SelectionRectangle.Intersect(ActorBox2D))
-        	{
-        		OutEntityArray.AddUnique(EachEntity);
+        if (ActorBox2D.bIsValid && SelectionRectangle.Intersect(ActorBox2D))
+        {        	
+        	OutEntityArray.AddUnique(EachEntity);
 
-        		// Highlight all Actors in the rectangle.
-        		EachEntity->RectangleHighlightActor();
-        	}
+        	// Highlight all Actors in the rectangle.
+       		EachEntity->RectangleHighlightActor();
         }
     }
 }
@@ -162,6 +181,9 @@ void AEDU_CORE_HUD::DrawSelectionMarquee(const FVector2d& MousePosition)
 { FLOW_LOG
 	InitialMousePos = MousePosition;
 	bMouseDraw = true;
+	// DrawSelectionMarquee Uses a frame counter to lessen CPU load, reset it at mouse click.
+	FrameCounter = 0;
+
 }
 
 void AEDU_CORE_HUD::StopDrawingSelectionMarquee()

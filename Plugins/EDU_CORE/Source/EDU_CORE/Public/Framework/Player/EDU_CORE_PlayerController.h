@@ -17,6 +17,8 @@ class UEDU_CORE_ControllerInputDataAsset;
 class AEDU_CORE_HUD;
 class IEDU_CORE_Selectable;
 class AEDU_CORE_SelectableEntity;
+class AEDU_CORE_AbstractEntity;
+class AEDU_CORE_PhysicalEntity;
 
 /*------------------------------------------------------------------------------
   Used By SetMappingContext()
@@ -73,7 +75,11 @@ public:
 	FORCEINLINE virtual void SetPlayerStartLocation(const FVector Location) { PlayerStartLocation = Location; };
 	FORCEINLINE	virtual FVector GetPlayerStartLocation() const { return PlayerStartLocation; }
 	FORCEINLINE virtual UEnhancedInputLocalPlayerSubsystem* GetInputSubsystem() { return InputSubSystem; }
-
+	
+	// Adds entity to the Local PlayerController Tick, running only on a client.
+	void AddToAbstractEntityArray(AEDU_CORE_AbstractEntity* TickingEntity);
+	void AddToPhysicalEntityArray(AEDU_CORE_PhysicalEntity* MobileEntity);
+	
 	virtual void SetMappingContext(EEDU_CORE_CurrentPawn Context);
 	
 //------------------------------------------------------------------------------
@@ -81,33 +87,44 @@ public:
 //------------------------------------------------------------------------------
 protected:
 	// Used to Spawn Entities at a certain location.
+	FVector2d MousePos;
+	
 	UPROPERTY()
 	FVector PlayerStartLocation;
 
 	UPROPERTY()
 	TObjectPtr<AEDU_CORE_HUD> LocalHUD;
-	
-	/*---------------- Pointers for Selectable interface in UNIT plugin ------------
-	  TScriptInterface is essentially, a fancy pointer. It's a template class that
-	  provides a way to work with interface types in a manner that is compatible
-	  with both C++ and the Engine reflection system (UObject system).
 
-	  It wraps around a UObject that implements a given interface, allowing you to
-	  call the interface methods directly and ensuring type safety.
+	/*---------------------- Client-Side Aggregated Tick ---------------------------
+	  This tick function allows us to aggregate ticks client-side. These are
+	  excellent for batch executions, such as blending occasional Server updates.
 
-	  Make sure the UNIT Plugin is included in this plugin as a private dependency.
+	  EntityBatch: Represents the number of entities to process in each tick.
+	  The loop will run EntityBatch times, allowing for controlled batch processing
+	  of entities.
+	  
+	  Index tracks which element in the EntityArray is being processed.
 	------------------------------------------------------------------------------*/
-	//TScriptInterface<IEDU_CORE_Selectable> LastActor; // Last Actor under Cursor
-	//TScriptInterface<IEDU_CORE_Selectable> CurrentActor; // Current Actor under Cursor
+	UPROPERTY()
+	TArray<AEDU_CORE_AbstractEntity*> AbstractEntityArray;
+
+	UPROPERTY(EditDefaultsOnly)
+	int32 AbstractEntityBatch = 100;
+	int32 AbstractEntityIndex = 0;
 	
-	TObjectPtr<AEDU_CORE_SelectableEntity> LastActor;
-	TObjectPtr<AEDU_CORE_SelectableEntity> CurrentActor;
+	UPROPERTY()
+	TArray<AEDU_CORE_PhysicalEntity*> PhysicalEntityArray;
+
+	UPROPERTY(EditDefaultsOnly)
+	int32 PhysicalEntityBatch = 100;
+	int32 PhysicalEntityIndex = 0;
+
+	
 //------------------------------------------------------------------------------
 // Functionality: Utility
 //------------------------------------------------------------------------------
-private:
-	void CursorTrace();
-	
+
+
 //------------------------------------------------------------------------------
 // Input: Components
 //------------------------------------------------------------------------------
@@ -116,7 +133,6 @@ protected:
 	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = "EDU_CORE Settings")
 	TObjectPtr<UDataAsset> ImportedInputDataAsset;
 	
-private:
 	// Internal pointer to Default InputMappingContext (Keymappings) and Actions.
 	UPROPERTY()
 	TObjectPtr<UEDU_CORE_ControllerInputDataAsset> InputDataAsset;

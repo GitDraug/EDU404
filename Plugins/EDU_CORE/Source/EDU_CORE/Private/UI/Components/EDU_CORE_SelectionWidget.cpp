@@ -5,7 +5,7 @@
 
 #include "CommonTextBlock.h"
 #include "Components/Button.h"
-#include "Framework/Data/FLOWLOG/FLOWLOG_UI.h"
+#include "Framework/Data/FLOWLOGS/FLOWLOG_UI.h"
 
 //------------------------------------------------------------------------------
 // Initialization & Object lifetime management

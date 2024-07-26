@@ -5,7 +5,7 @@
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
 #include "Components/ComboBoxString.h"
-#include "Framework/Data/FLOWLOG/FLOWLOG_UI.h"
+#include "Framework/Data/FLOWLOGS/FLOWLOG_UI.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Kismet/KismetSystemLibrary.h"
 

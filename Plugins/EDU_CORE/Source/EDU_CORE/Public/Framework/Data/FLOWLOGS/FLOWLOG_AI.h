@@ -8,16 +8,16 @@
 ---------------------------------------------------------------------*/
 
 //Declare External Log Category (Category name, Default verbosity, Maximum verbosity level)
-DECLARE_LOG_CATEGORY_EXTERN(FlowLog_MANAGERS, Display, All);
-DECLARE_LOG_CATEGORY_EXTERN(FlowLog_MANAGERS_TICK, Display, All);
+DECLARE_LOG_CATEGORY_EXTERN(FlowLog_AI, Display, All);
+DECLARE_LOG_CATEGORY_EXTERN(FlowLog_AI_TICK, Display, All);
 
 //Define External Log Category
-inline DEFINE_LOG_CATEGORY(FlowLog_MANAGERS);
-inline DEFINE_LOG_CATEGORY(FlowLog_MANAGERS_TICK);
+inline DEFINE_LOG_CATEGORY(FlowLog_AI);
+inline DEFINE_LOG_CATEGORY(FlowLog_AI_TICK);
 
 // Define Internal Macro for this .h file
-#define FLOWLOG_CATEGORY FlowLog_MANAGERS
-#define FLOWLOG_TICK_CATEGORY FlowLog_MANAGERS_TICK
+#define FLOWLOG_CATEGORY FlowLog_AI
+#define FLOWLOG_TICK_CATEGORY FlowLog_AI_TICK
 
 //-------------------------------------------------------
 // Flow Log MACRO, only executed in debug mode.

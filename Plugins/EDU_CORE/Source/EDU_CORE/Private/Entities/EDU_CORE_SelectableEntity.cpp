@@ -2,7 +2,7 @@
 
 
 #include "Entities/EDU_CORE_SelectableEntity.h"
-#include "Framework/Data/FLOWLOG/FLOWLOG_ENTITIES.h"
+#include "Framework/Data/FLOWLOGS/FLOWLOG_ENTITIES.h"
 
 //------------------------------------------------------------------------------
 // Construction & Object Lifetime Management
