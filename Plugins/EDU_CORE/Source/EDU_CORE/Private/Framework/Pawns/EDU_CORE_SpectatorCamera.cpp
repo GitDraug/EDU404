@@ -413,7 +413,7 @@ void AEDU_CORE_SpectatorCamera::EnableInterpRotation()
 }
 
 void AEDU_CORE_SpectatorCamera::EnableInterpMovement(float Time)
-{ FLOW_LOG
+{ // FLOW_LOG
 	bInterpMov = true;
 	InterpTimer = Time;
 }
@@ -667,7 +667,7 @@ void AEDU_CORE_SpectatorCamera::UpdateCameraLocation(const float DeltaTime)
 }
 
 void AEDU_CORE_SpectatorCamera::UpdateCameraZoom(const float DeltaTime)
-{ FLOW_LOG
+{ // FLOW_LOG
 	// <!> Note that this is a tick executed function, so be careful to set values that shouldn't be updated on tick.
 	if (bZoomOut)
 	{
@@ -802,7 +802,7 @@ void AEDU_CORE_SpectatorCamera::EdgeScroll()
 	if (DistanceToLeftEdge <= ScreenEdgeArea)	{ ScrollDirection.Y = DistanceToLeftEdge - ScreenEdgeArea; } // Left
 	
 	if(ScrollDirection.X != 0 || ScrollDirection.Y != 0)
-	{ FLOW_LOG
+	{
 		const float Speed = ModifierKey == EEDU_CORE_InputModifierKey::Mod_1 ?
 		/*----------------------------------------------------------------------------------
 		  Since some monitors are larger than others, we need to divide our ScrollDirection
@@ -901,6 +901,13 @@ void AEDU_CORE_SpectatorCamera::MouseDrag()
 
 void AEDU_CORE_SpectatorCamera::CopyEntitiesInHUDArray()
 { FLOW_LOG
+	
+	/*----------------------------------------------------------------------------
+	  <!> Observer that this is all on the client. The server doesn't have access
+	  to our local HUD, so it can't copy the entities in the array.  For that,
+	  we need to tell the server to copy the Array on the server instance.
+	----------------------------------------------------------------------------*/
+	
 	SelectionArray = LocalHUD->GetSelectionRectangleArray();
 	SelectEntitiesInRectangle();
 	ResetHUDSelectionArray();
@@ -1140,7 +1147,8 @@ void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Pressed(const FInputActionValue& I
 	FVector2d MousePos;
 	LocalController->GetMousePosition(MousePos.X, MousePos.Y);
 	LocalHUD->DrawSelectionMarquee(MousePos);
-	
+
+	// Check if we are double-clicking
 	float CurrentTime = GetWorld()->GetTimeSeconds();
 	if (CurrentTime - Mouse_1_StartTime > DoubleClickDelay)
 	{
@@ -1176,7 +1184,7 @@ void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Released(const FInputActionValue& 
 { FLOW_LOG
 	bMouse_1 = false;
 	
-	LocalHUD->StopDrawingSelectionMarquee();
+	LocalHUD->StopDrawingSelectionMarquee();	
 	if(LocalHUD->GetSelectionRectangleArray().Num() > 0)
 	{
 		if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_1)
@@ -1187,7 +1195,7 @@ void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Released(const FInputActionValue& 
 		{
 			CopyEntitiesInHUDArray();
 		}
-	}
+	} 
 }
 
 void AEDU_CORE_SpectatorCamera::Input_Mouse_2_Pressed(const FInputActionValue& InputActionValue)

@@ -25,21 +25,19 @@ inline DEFINE_LOG_CATEGORY(FlowLog_UI_TICK);
 #if UE_BUILD_DEVELOPMENT
 
   // Normal program flow, no message
-    #define FLOW_LOG UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("%s::%hs"), *GetClass()->GetName(), __FUNCTION__); // Custom Log category, so we can monitor program flow in the console. The Macro makes the source less cluttered.
+    #define FLOW_LOG UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("Local: %s::%hs"), *GetClass()->GetName(), __FUNCTION__);
+
 
   // Warning with a message
-    #define FLOW_LOG_WARNING_TOSTRING(Message) UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("%s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, Message);
-    #define FLOW_LOG_WARNING(Message) UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("%s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message));
+    #define FLOW_LOG_WARNING(Message) UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Local: %s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message))
 
   // Error with a message
-    #define FLOW_LOG_ERROR_TOSTRING(Message) UE_LOG(FLOWLOG_CATEGORY, Error, TEXT("%s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, (Message)); 
-    #define FLOW_LOG_ERROR(Message) UE_LOG(FLOWLOG_CATEGORY, Error, TEXT("%s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message)); 
+    #define FLOW_LOG_ERROR(Message) UE_LOG(FLOWLOG_CATEGORY, Error, TEXT("Local: %s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message));
 
 //-------------------------------------------------------
 // Used to track when a Tick starts
 //-------------------------------------------------------
-  #define FLOW_LOG_TICK UE_LOG(FLOWLOG_TICK_CATEGORY, Display, TEXT("%s::%hs"), *GetClass()->GetName(), __FUNCTION__);
-
+  #define FLOW_LOG_TICK UE_LOG(FLOWLOG_TICK_CATEGORY, Display, TEXT("Local: %s::%hs"), *GetClass()->GetName(), __FUNCTION__);
 //-------------------------------------------------------
 // OnScreen Messages, when running live
 //-------------------------------------------------------

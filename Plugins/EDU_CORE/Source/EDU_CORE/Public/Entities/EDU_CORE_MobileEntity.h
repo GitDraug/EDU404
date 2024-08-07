@@ -42,15 +42,19 @@ public:
 	// Interface Commands
 	//------------------------------------------------------------------------------
 	UFUNCTION()
-	virtual void Command_NavigateTo(AActor* Commander, const FVector& Position, const FRotator& Rotation, bool Que, float Delay) override;
+	virtual void Command_NavigateTo(int32 FormationIndex, AEDU_CORE_Waypoint* WayPoint, bool QueueWaypoint = false) override;
 
+	UFUNCTION()
+	virtual void Command_LookAt(int32 FormationIndex, AEDU_CORE_Waypoint* WayPoint, bool QueueWaypoint = false) override;
+	
 	//------------------------------------------------------------------------------
 	// Waypoint Utility
 	//------------------------------------------------------------------------------
 	UFUNCTION()
-	virtual void SaveWaypoint(AEDU_CORE_Waypoint* Waypoint);
-	virtual void DeleteWaypoint(AEDU_CORE_Waypoint* Waypoint);
+	virtual void AddWaypoint(AEDU_CORE_Waypoint* Waypoint, int32 FormationIndex, bool Queue = false) override;
+	virtual void RemoveWaypoint(AEDU_CORE_Waypoint* Waypoint) override;
 	virtual void ClearAllWaypoints();
+	
 	const virtual TArray<AEDU_CORE_Waypoint*>& GetWaypointArray() { return WaypointArray; }
 
 	//---------------------------------------------------------------------------
@@ -74,15 +78,18 @@ public:
 // Components Waypoints
 //------------------------------------------------------------------------------
 protected:
-	UPROPERTY(EditAnywhere, Category = "Waypoints")
-	TArray<TObjectPtr<AEDU_CORE_Waypoint>> WaypointArray;
+
 
 	int8 MaxWaypointCapacity = 20;
+
+	UPROPERTY(EditAnywhere, Category = "Waypoints")
+	TArray<TObjectPtr<AEDU_CORE_Waypoint>> WaypointArray;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Waypoints")
 	TSubclassOf<AEDU_CORE_Waypoint> WaypointClass;
-	
-	TObjectPtr<AEDU_CORE_Waypoint_Move> Waypoint_Move ;
+
+	UPROPERTY()
+	TObjectPtr<AEDU_CORE_Waypoint_Move> Waypoint_Move;
 
 //------------------------------------------------------------------------------
 // Simplified Physics Movement (Not using the chaos physics engine)
@@ -128,9 +135,6 @@ protected:
 // Utility
 //------------------------------------------------------------------------------
 protected:
-	UFUNCTION()
-	virtual AEDU_CORE_Waypoint_Move* SpawnWaypoint(AActor* Camera, const FVector& Position, const FRotator& Rotation);
-
 	// Get the Angle to a target position, can be used to filter out Yaw etc.
 	FRotator GetRotationToTargetPos(const FVector& Target) const;
 	FRotator GetRotationToTargetActor(const AActor* TargetActor) const;

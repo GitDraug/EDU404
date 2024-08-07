@@ -32,7 +32,7 @@ public:
 	float DoubleClickDelay = 0.25f;
 	
 	//------------------------------------------------------------------------------
-	// Input Control Parameters: KeyMove
+	// Input Control Parameters: Keyboard Movement
 	//------------------------------------------------------------------------------
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters  |  Move")
 	float KeyMoveSpeed = 100.f;
@@ -41,7 +41,7 @@ public:
 	float KeyMoveSpeedMultiplier = 2.f;
 
 	//------------------------------------------------------------------------------
-	// Input Control Parameters: Mouse Move Scroll
+	// Input Control Parameters: Mouse Move Scrolling
 	//------------------------------------------------------------------------------
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters  |  Edge Scroll")
 	float MouseMoveSpeed = 10.f;
@@ -50,7 +50,7 @@ public:
 	float MouseMoveSpeedMultiplier = 2.f;
 	
 	//------------------------------------------------------------------------------
-	// Input Control Parameters: Edge Scroll
+	// Input Control Parameters: Edge Scrolling
 	//------------------------------------------------------------------------------
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters  |  Edge Scroll")
 	float ScreenEdgeArea = 5.f;
@@ -139,11 +139,11 @@ public:
 	  EnhancedInputComponent->BindAction.
 	  
 	  The Mapping Context (in the Editor) binds BP Input Actions to
-	  keyboard keys. In this plugin, all mapping contexts (keybindings) are
+	  keyboard keys. In this project, all mapping contexts (keybindings) are
 	  set in the Controller. Pawns instead manage their own, internal
 	  functionality, but not keybindings.
 
-	  It is possible to have overlapping and shared contexts, but from my
+	  It is possible to have overlapping and shared contexts, but from my [Draug]
 	  experience, it's a bad idea. It's extra work to jump around and make
 	  sure overlapping contexts work well together instead of separation
 	  of concerns, even if it involves some code duplication.
@@ -153,8 +153,8 @@ public:
 	  for pointers in this file.
 	  
 	  The UInputAction pointers in this class are bound to BP through
-	  a DataAsset in the editor inherited from this DataAsset. The DataAsset
-	  is the most important, without it C++ can't connect to BP.
+	  a DataAsset in the editor inherited from this DataAsset. The derived DataAsset
+	  in the Editor is the most important, without it C++ can't connect to BP.
 	--------------------------------------------------------------------------*/
 	
 	//-----------------------------------------------------------------------------

@@ -7,6 +7,7 @@
 #include "Entities/EDU_CORE_MobileEntity.h"
 #include "Entities/EDU_CORE_PhysicalEntity.h"
 #include "Framework/Data/FLOWLOGS/FLOWLOG_MANAGERS.h"
+#include "Net/UnrealNetwork.h"
 
 //------------------------------------------------------------------------------
 // Construction & Object Lifetime Management
@@ -31,6 +32,7 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 	// Add an on-screen debug message with the specified DisplayColor and DeltaTime information
 	GEngine->AddOnScreenDebugMessage(12, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
 		FString::Printf(TEXT("FPS: %f"), 1.f/DeltaTime));
+	
 	/*------------------------------------------------------------------------------
 	// Server-Side Aggregated Tick: AbstractEntityArray // Not in use.
 	//------------------------------------------------------------------------------
@@ -80,9 +82,7 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 			MobileEntityArray[Index]->ServerMobileCalc(DeltaTime);
 		}
 	});
-
-	MobileEntityIndex++;
-	
+		
 	for (AEDU_CORE_MobileEntity* MobileEntity : MobileEntityArray)
 	{
 		if (MobileEntity)
@@ -156,7 +156,7 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 	}
 
 	FrameCounter = 0;*/
-}	
+}
 
 //------------------------------------------------------------------------------
 // Public API
@@ -193,6 +193,21 @@ void AEDU_CORE_GameMode::AddToMobileEntityArray(AEDU_CORE_MobileEntity* MobileEn
 		MobileEntityArray.Add(MobileEntity); // Adds the pointer to the array
 		//UE_LOG(FLOWLOG_CATEGORY, Log, TEXT("Entity added: %s"), *AbstractEntity->GetName());
 	}
+}
+
+void AEDU_CORE_GameMode::AddToGuidActorMap(FGuid GUID,AActor* Actor)
+{ FLOW_LOG
+	GuidActorMap.Add(GUID, Actor);
+	//UE_LOG(FLOWLOG_CATEGORY, Log, TEXT("Entity added: %s"), *Actor->GetName());
+}
+
+AActor* AEDU_CORE_GameMode::FindActorInMap(FGuid GUID) const
+{ FLOW_LOG
+	if(AActor* Actor = GuidActorMap.FindRef(GUID))
+	{
+		return Actor;
+	}
+	return nullptr;
 }
 
 //------------------------------------------------------------------------------

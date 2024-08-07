@@ -6,6 +6,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "EDU_CORE_GameMode.generated.h"
 
+class IEDU_CORE_CommandInterface;
 class AEDU_CORE_MobileEntity;
 class AEDU_CORE_AbstractEntity;
 class AEDU_CORE_PhysicalEntity;
@@ -23,9 +24,9 @@ class URTS_CORE_GameDataAsset;
   A GameModeBase actor is instantiated when the level is initialized for gameplay in
   C++ UGameEngine::LoadMap().  
   
-  The class of this GameMode actor is determined by (in order) either the
-  URL ?game=xxx, the GameMode Override value set in the World Settings, or the
-  DefaultGameMode entry set in the game's Project Settings.
+  This CORE_GameMode makes use of an aggregated tick, and is meant to be used
+  with all entities; actors with common tick functions. Use it for all levels
+  where the player is expected to interact with entities.
 ------------------------------------------------------------------------------*/
 UCLASS(Abstract)
 class EDU_CORE_API AEDU_CORE_GameMode : public AGameModeBase
@@ -48,13 +49,29 @@ public:
 	void AddToAbstractEntityArray(AEDU_CORE_AbstractEntity* AbstractEntity);
 	void AddToPhysicalEntityArray(AEDU_CORE_PhysicalEntity* PhysicalEntity);
 	void AddToMobileEntityArray(AEDU_CORE_MobileEntity* MobileEntity);
+
+	// For Entities and Actors to register across instances.
+	void AddToGuidActorMap(FGuid GUID, AActor* Actor);
+	AActor* FindActorInMap(FGuid GUID) const;
 	
 	FColor DeltaTimeDisplayColor;
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
-protected:
-	// Give the server access to all classes that have aggregated tick.
+//protected:
+	/*---------------------- Server ID for MP communication  -----------------------
+	  Pointers are local, so we can't use them to send information to the server.
+	  In order for a client to manipulate an instance on the server machine, we
+	  need an ID that is unique across instances. We use a GUID for this, and a
+	  HashMap on the server to tie each entity to the ID. The entity requests
+	  a unique ID from the server upon BeginPlay.
+
+	  HashMaps are really fast, but can't be replicated, so they are perfect
+	  for this purpose.
+	------------------------------------------------------------------------------*/
+	UPROPERTY(Transient)
+	TMap<FGuid, AActor*> GuidActorMap;
+
 	
 	/*---------------------- Server-Side Aggregated Tick ---------------------------
 	  This tick function allows us to aggregate ticks server-side. These are
@@ -88,6 +105,9 @@ protected:
 	int32 MobileEntityIndex = 0;
 
 	int32 FrameCounter;
+	
+	IEDU_CORE_CommandInterface* CommandInterface;
+	
 //------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------

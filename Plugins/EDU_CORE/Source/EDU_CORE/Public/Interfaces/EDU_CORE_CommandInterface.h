@@ -6,8 +6,8 @@
 #include "UObject/Interface.h"
 #include "EDU_CORE_CommandInterface.generated.h"
 
-class AEDU_CORE_PlayerController;
-class AEDU_CORE_C2_Camera;
+class AEDU_CORE_Waypoint;
+
 /*------------------------------------------------------------------------------
   <!> Make sure both U- and I-classes in an interface implement any Plugin API,
   else they will cause linking errors when imported into other plugins.
@@ -38,5 +38,9 @@ class EDU_CORE_API IEDU_CORE_CommandInterface
 	GENERATED_BODY()
 
 public:
-	virtual void Command_NavigateTo(AActor* Owner, const FVector& Position, const FRotator& Rotation, bool Que = false, float Delay = 0) = 0;
+	virtual void AddWaypoint(AEDU_CORE_Waypoint*, int32 FormationIndex, bool Queue) = 0;
+	virtual void RemoveWaypoint(AEDU_CORE_Waypoint* Waypoint) = 0;
+	
+	virtual void Command_NavigateTo(int32 FormationIndex, AEDU_CORE_Waypoint* WayPoint, bool QueueWaypoint = false) = 0;
+	virtual void Command_LookAt(int32 FormationIndex, AEDU_CORE_Waypoint* WayPoint, bool QueueWaypoint = false) = 0;
 };

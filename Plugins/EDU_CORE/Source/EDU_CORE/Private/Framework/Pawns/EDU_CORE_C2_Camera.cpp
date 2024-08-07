@@ -3,11 +3,14 @@
 
 #include "Framework/Pawns/EDU_CORE_C2_Camera.h"
 
+#include "EngineUtils.h"
 #include "EnhancedInputComponent.h"
+#include "AI/WayPoints/EDU_CORE_Waypoint.h"
 #include "Framework/Data/DataAssets/EDU_CORE_CameraPawnInputDataAsset.h"
 #include "Framework/Data/FLOWLOGS/FLOWLOG_PLAYER.h"
-#include "Entities/EDU_CORE_MobileEntity.h"
 #include "Entities/EDU_CORE_SelectableEntity.h"
+#include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
+#include "Interfaces/EDU_CORE_CommandInterface.h"
 
 //------------------------------------------------------------------------------
 // Construction & Init
@@ -90,6 +93,27 @@ void AEDU_CORE_C2_Camera::Tick(float DeltaTime)
 //---------------------------------------------------------------------------
 // Functionality: Mouse Button Input functions
 //---------------------------------------------------------------------------
+void AEDU_CORE_C2_Camera::Input_Mouse_1_Released(const FInputActionValue& InputActionValue)
+{
+	Super::Input_Mouse_1_Released(InputActionValue);
+	
+	// The server can act as usual, but the client needs to work through the server.
+	if(!HasAuthority())
+	{
+		// We need to convert our actor pointers to GUIDs, so we can get them on the server.
+		if(SelectionArray.Num() > 0)
+		{
+			ServerIDArray.Reset();
+			for(AEDU_CORE_SelectableEntity* LocalEntity : SelectionArray)
+			{
+				ServerIDArray.AddUnique(LocalEntity->GetGUID());
+			}
+		}
+		// Now that we have an array of Global IDs, we can tell the server to get them on the server instance.
+		GetEntitiesOnServer(ServerIDArray);	
+	}
+}
+
 void AEDU_CORE_C2_Camera::Input_Mouse_2_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	Super::Input_Mouse_2_Pressed(InputActionValue);
@@ -104,37 +128,160 @@ void AEDU_CORE_C2_Camera::Input_Mouse_2_Released(const FInputActionValue& InputA
 	// Mouse 2 is no longer pressed.
 	Mouse_2_PressedTime = 0;
 
-	Send_Command();
-}
-
-void AEDU_CORE_C2_Camera::Command_LookAt()
-{ FLOW_LOG
-}
-
-void AEDU_CORE_C2_Camera::Send_Command()
-{ FLOW_LOG
-	// TODO: It would be best to make a custom CollisionProfile or channel for only selectables and ground.
-	for (int32 Index = 0; Index < SelectionArray.Num(); ++Index)
+	if(SelectionArray.Num() > 0)
 	{
-		// Get the entity from the SelectionArray
-		if(AActor* SelectableEntity = SelectionArray[Index])
+		if(AActor* SelectableEntity = SelectionArray[0])
 		{
-			// Check if the entity is a MobileEntity.
-			if(AEDU_CORE_MobileEntity* MobileEntity = Cast<AEDU_CORE_MobileEntity>(SelectableEntity))
+			if(ModifierKey == EEDU_CORE_InputModifierKey::NoModifier)
 			{
-				CommandDelay++;
-				// Que up if shift is held, else delete old waypoints.
-				if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_1)
+				if(HasAuthority()) // If we are on the server, we call it directly.
 				{
-					MobileEntity->Command_NavigateTo(this, SavedCursorWorldPos, CursorRotation, true, CommandDelay/SelectionArray.Num());
+					Command_LookAt();
 				}
-				else
+				else if(!HasAuthority())// We ask the server to do it.
 				{
-					MobileEntity->Command_NavigateTo(this, SavedCursorWorldPos, CursorRotation, false, CommandDelay/SelectionArray.Num());
+					ServerCommand_LookAt();
 				}
+				
+			}
+			if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_3 || ModifierKey == EEDU_CORE_InputModifierKey::Mod_13)
+			{
+				Command_LookAt();
 			}
 		}
 	}
-	CommandDelay = 0;
 }
 
+//---------------------------------------------------------------------------
+// Server logic
+//---------------------------------------------------------------------------
+
+void AEDU_CORE_C2_Camera::ServerCommand_LookAt_Implementation()
+{ FLOW_LOG
+	Command_LookAt();
+}
+
+//---------------------------------------------------------------------------
+// Functionality: Commands
+//---------------------------------------------------------------------------
+
+void AEDU_CORE_C2_Camera::Command_NavigateTo()
+{ FLOW_LOG
+	
+}
+
+void AEDU_CORE_C2_Camera::GetEntitiesOnServer_Implementation(const TArray<FGuid>& IDArray)
+{ FLOW_LOG
+	if(HasAuthority())
+	{
+		// We need pointers on the serverInstance to fill the SelectionArray on the Server version of our Player Controller. 
+		if (AEDU_CORE_GameMode* GameMode = Cast<AEDU_CORE_GameMode>(GetWorld()->GetAuthGameMode()))
+		{
+			// Process the IDArray on the server
+			for (const FGuid& Guid : IDArray)
+			{
+				// Find the actor by GUID using the GameMode method
+				AActor** ActorPtr = GameMode->GuidActorMap.Find(Guid);
+				if(AActor* Actor = *ActorPtr) //  GameMode->FindActorInMap(Guid))
+				{
+					if (AEDU_CORE_SelectableEntity* SelectableEntity = Cast<AEDU_CORE_SelectableEntity>(Actor))
+					{
+						SelectionArray.AddUnique(SelectableEntity);
+						UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("Server: %s::%hs - Added %s to SelectionArray"), *GetClass()->GetName(), __FUNCTION__, *SelectableEntity->GetClass()->GetName());
+					}
+				}
+				else
+				{
+					UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Server: %s::%hs - No actor found with GUID: %s"), *GetClass()->GetName(), __FUNCTION__, *Guid.ToString());
+				}
+			}
+		}
+		/*
+		if (AEDU_CORE_GameMode* GameMode = Cast<AEDU_CORE_GameMode>(GetWorld()->GetAuthGameMode()))
+		{
+			// Process the IDArray on the server
+			for (const FGuid& Guid : IDArray)
+			{
+				// Find the actor in the level by GUID
+				for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+				{
+					if(AActor* ActorPtr = *GameMode->FindActorInMap(Guid))
+					{
+						if(AEDU_CORE_SelectableEntity* SelectableEntity = Cast<AEDU_CORE_SelectableEntity>(ActorPtr))
+						{
+							SelectionArray.AddUnique(SelectableEntity);
+							UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("Server: %s::%hs - Added %s to SelectionArray"), *GetClass()->GetName(), __FUNCTION__, *SelectableEntity->GetClass()->GetName());
+						}
+					}
+				}
+			}
+		}*/
+	}
+}
+
+
+void AEDU_CORE_C2_Camera::Command_LookAt()
+{ FLOW_LOG
+	// We need an ID for the Waypoint
+	FGuid WaypointID = FGuid::NewGuid(); 
+	
+	// We'll spawn a waypoint to do work for us.
+	
+	// Declare the Waypoint we will issue.
+	AEDU_CORE_Waypoint* Waypoint = nullptr;
+
+	if(SelectionArray.Num() == 0)
+	{
+		FLOW_LOG_WARNING("SelectionArray has no elements.")
+	}
+	
+	for(AActor* SelectableEntity : SelectionArray)
+	{
+		// Check that it's alive.
+		if(SelectableEntity)
+		{	// Check if the entity can receive commands.
+			if(IEDU_CORE_CommandInterface* Entity = Cast<IEDU_CORE_CommandInterface>(SelectableEntity))
+			{
+				// There might be entities that can't take orders in the array, so we will only create the waypoint when we know for sure that someone can adhere to it.
+				if(!Waypoint)
+				{
+					FActorSpawnParameters SpawnParams;
+					Waypoint = GetWorld()->SpawnActor<AEDU_CORE_Waypoint>(WaypointClass, SavedCursorWorldPos, CursorRotation, SpawnParams);
+					UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("%s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, *Waypoint->GetName())
+				}
+
+				// The waypoint should be created for the first entity in the array now, and skipped for everyone else.
+				if(Waypoint)
+				{
+					Waypoint->AddActorToWaypoint(SelectableEntity);
+				}
+				else
+				{
+					FLOW_LOG_ERROR("Waypoint is null - check the BP_Camera in the Editor, also make sure it's the BP version, not .cpp")
+				}
+			}
+		}
+		else
+		{
+			FLOW_LOG_WARNING("Entity don't exist.")
+		}
+	}
+
+	// Now that the Waypoint is loaded, we want to tell it to Notify everyone it has saved.
+
+	if(Waypoint)
+	{
+		if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_13) // Queue the waypoint
+		{
+			Waypoint->NotifyListeners(true);
+		}
+		else
+		{
+			Waypoint->NotifyListeners(false);
+		}
+	}
+	else
+	{
+		FLOW_LOG_WARNING("Waypoint don't exist.")
+	}
+}

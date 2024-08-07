@@ -6,7 +6,8 @@
 #include "EDU_CORE_SpectatorCamera.h"
 #include "EDU_CORE_C2_Camera.generated.h"
 
-
+class AEDU_CORE_Waypoint;
+class AEDU_CORE_Waypoint_Move;
 
 UCLASS()
 class EDU_CORE_API AEDU_CORE_C2_Camera : public AEDU_CORE_SpectatorCamera
@@ -40,9 +41,28 @@ public:
 	// Used to initialize the variables in the DataAsset
 	virtual void SetPawnDefaults() override;
 
+//------------------------------------------------------------------------------
+// Components
+//------------------------------------------------------------------------------
+	
+	UPROPERTY()
+	TArray<FGuid> ServerIDArray; // Used for selecting entities on the server.
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Waypoints")
+	TSubclassOf<AEDU_CORE_Waypoint> WaypointClass;
+
+	UPROPERTY()
+	TObjectPtr<AEDU_CORE_Waypoint_Move> Waypoint_NavigateTo;
+
+	UPROPERTY()
+	TObjectPtr<AEDU_CORE_Waypoint_Move> Waypoint_LookAt ;
+	
 //---------------------------------------------------------------------------
 // Input Functionality: Mouse
 //---------------------------------------------------------------------------
+
+	virtual void Input_Mouse_1_Released(const FInputActionValue& InputActionValue) override;
+	
 	virtual void Input_Mouse_2_Pressed(const FInputActionValue& InputActionValue) override;
 	virtual void Input_Mouse_2_Released(const FInputActionValue& InputActionValue) override;
 
@@ -51,10 +71,16 @@ public:
 //---------------------------------------------------------------------------
 	
 	virtual void Command_LookAt();
+	virtual void Command_NavigateTo();
+	
+//---------------------------------------------------------------------------
+// Server logic
+//---------------------------------------------------------------------------
 
-	virtual void Send_Command();
+	UFUNCTION(Server, Reliable)
+	virtual void GetEntitiesOnServer(const TArray<FGuid>& IDArray);
 	
-	float CommandDelay;
-	
+	UFUNCTION(Server, Reliable)
+	void ServerCommand_LookAt();
 	
 };

@@ -44,4 +44,17 @@ enum class EEDU_CORE_InputModifierKey : uint8
 	Mod_234,
 };
 
+UENUM()
+enum class EEDU_CORE_Formations : uint8
+{
+	// Default
+	NoFormation,
+
+	Grid,
+	Line,
+	Wedge,
+	File,
+	Column,
+	StaggeredColumn
+};
 

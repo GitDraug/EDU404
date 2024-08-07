@@ -298,7 +298,7 @@ protected:
 	void ResetCameraSelectionArray(); // Unselect selected entities and empty the Camera's SelectionArray.
 	void ResetHUDSelectionArray() const; // Unselect selected entities and empty the HUD's SelectionArray.
 	void SelectEntitiesInRectangle(); // Save selected entities and empty the HUDArray.
-	void CopyEntitiesInHUDArray(); 
+	virtual void CopyEntitiesInHUDArray(); 
 	void CallCtrlGroup(const TArray<AEDU_CORE_SelectableEntity*>& CtrlGroupArray);
 	void ReviseSelection(); 	// Remove an Entity from selection, or adds it if not already present. 
 	

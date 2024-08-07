@@ -24,6 +24,8 @@ class EDU_CORE_API AEDU_CORE_SelectableEntity : public AActor
 public:
 	AEDU_CORE_SelectableEntity(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+	virtual void BeginPlay() override;
+
 //------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------
@@ -46,6 +48,18 @@ public:
 	
 	virtual void SelectActor();
 	virtual void UnSelectActor();
+
+	virtual void SetGUID(FGuid NewID) { ServerEntityID = NewID; };
+	virtual FGuid GetGUID() { return ServerEntityID; };
+
+//------------------------------------------------------------------------------
+// Networking
+//------------------------------------------------------------------------------
+protected:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	UPROPERTY(Replicated)
+	FGuid ServerEntityID;
 	
 //------------------------------------------------------------------------------
 // Components

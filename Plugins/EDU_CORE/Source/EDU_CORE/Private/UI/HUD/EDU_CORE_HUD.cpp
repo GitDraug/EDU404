@@ -81,9 +81,9 @@ void AEDU_CORE_HUD::DrawHUD()
 	  The FrameCounter measures frames passed since we last called the function.
 
 	  TODO: It would even be better to filter out actors that don't use an interface
-	  rather than basing is on selecteble entity.
+	  rather than basing is on selectable entity.
 	------------------------------------------------------------------------------*/
-	if(FrameCounter > 10)
+	if(FrameCounter < 10) // 10 frames is still 3 times a second @ 30 FPS
 	{
 		FrameCounter++;
 		return;

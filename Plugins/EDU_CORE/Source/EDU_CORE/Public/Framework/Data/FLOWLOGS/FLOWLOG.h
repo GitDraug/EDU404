@@ -1,41 +1,28 @@
 ﻿#pragma once
 
-/*--------------------------------------------------------------------
-  Custom Log category, so we can monitor program flow in the console.
-  The Macro makes the source less cluttered.
-
-  For Category name, only these 3 need ot be changed
----------------------------------------------------------------------*/
-
-//Declare External Log Category (Category name, Default verbosity, Maximum verbosity level)
-DECLARE_LOG_CATEGORY_EXTERN(FlowLog_CORE, Display, All);
-
-//Define External Log Category
-inline DEFINE_LOG_CATEGORY(FlowLog_CORE);
-
-// Define Internal Macro for this .h file
-#define FLOWLOG_CATEGORY FlowLog_CORE
-
 //-------------------------------------------------------
 // Flow Log MACRO, only executed in debug mode.
 //-------------------------------------------------------
-
 #if UE_BUILD_DEVELOPMENT
 
   // Normal program flow, no message
-    #define FLOW_LOG UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("Local: %s::%hs"), *GetClass()->GetName(), __FUNCTION__);
+    #define FLOW_LOG if(HasAuthority()){ UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("Server: %s::%hs"), *GetClass()->GetName(), __FUNCTION__); } \
+                                  else { UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("Client: %s::%hs"), *GetClass()->GetName(), __FUNCTION__); }
 
 
   // Warning with a message
-    #define FLOW_LOG_WARNING(Message) UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Local: %s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message))
+    #define FLOW_LOG_WARNING(Message) if(HasAuthority()){ UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Server: %s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message)); } \
+                                                   else { UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Client: %s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message)); }
 
   // Error with a message
-    #define FLOW_LOG_ERROR(Message) UE_LOG(FLOWLOG_CATEGORY, Error, TEXT("Local: %s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message));
+    #define FLOW_LOG_ERROR(Message) if(HasAuthority()){ UE_LOG(FLOWLOG_CATEGORY, Error, TEXT("Server: %s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message)); } \
+                                                 else { UE_LOG(FLOWLOG_CATEGORY, Error, TEXT("Client: %s::%hs - %s"), *GetClass()->GetName(), __FUNCTION__, TEXT(Message)); }
 
 //-------------------------------------------------------
 // Used to track when a Tick starts
 //-------------------------------------------------------
-  #define FLOW_LOG_TICK UE_LOG(FLOWLOG_TICK_CATEGORY, Display, TEXT("Local: %s::%hs"), *GetClass()->GetName(), __FUNCTION__);
+  #define FLOW_LOG_TICK if(HasAuthority()){ UE_LOG(FLOWLOG_TICK_CATEGORY, Display, TEXT("Server: %s::%hs"), *GetClass()->GetName(), __FUNCTION__); } \
+                                     else { UE_LOG(FLOWLOG_TICK_CATEGORY, Display, TEXT("Client: %s::%hs"), *GetClass()->GetName(), __FUNCTION__); } 
 //-------------------------------------------------------
 // OnScreen Messages, when running live
 //-------------------------------------------------------

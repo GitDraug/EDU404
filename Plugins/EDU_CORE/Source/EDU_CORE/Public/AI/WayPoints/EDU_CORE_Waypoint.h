@@ -7,6 +7,8 @@
 #include "Entities/EDU_CORE_SelectableEntity.h"
 #include "EDU_CORE_Waypoint.generated.h"
 
+class IEDU_CORE_CommandInterface;
+
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
 --------------------------------------------------------------------------------
@@ -25,9 +27,17 @@ class EDU_CORE_API AEDU_CORE_Waypoint : public AEDU_CORE_SelectableEntity
 public:
 	AEDU_CORE_Waypoint();
 
+	virtual void BeginPlay() override;
+
 	//------------------------------------------------------------------------------
 	// Functionality
 	//------------------------------------------------------------------------------
+	void AddActorToWaypoint(AActor* Actor);
+	void RemoveActorFromWaypoint(AActor* Actor);
+
+	// Notifies a listener in the ListenerArray that they need to save this waypoint;
+	void NotifyListeners(bool Queue);
+	
 public:
 	/*-------------------------------------------------------------------------------------
 	  Highlighting and Selection are triggered by
@@ -42,7 +52,10 @@ public:
 	virtual void RectangleHighlightActor() override;
 	virtual void UnRectangleHighlightActor() override;
 
-	//------------------------------------------------------------------------------
-	// Components
-	//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Components
+//------------------------------------------------------------------------------
+
+	UPROPERTY()
+	TArray<TObjectPtr<AActor>> ListenerArray; // Entities that adhere to this waypoint;
 };

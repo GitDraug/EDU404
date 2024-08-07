@@ -19,7 +19,10 @@ UCLASS(Abstract)
 class EDU_CORE_API AEDU_CORE_AbstractEntity : public AActor
 {
 	GENERATED_BODY()
-	
+//------------------------------------------------------------------------------
+// Init & Object lifetime management
+//------------------------------------------------------------------------------
+public:
 	virtual void BeginPlay() override;
 	
 	// Called every frame by GameMode (Only exists on the Server)

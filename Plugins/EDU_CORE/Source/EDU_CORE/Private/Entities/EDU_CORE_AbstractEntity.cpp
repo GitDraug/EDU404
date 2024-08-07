@@ -5,6 +5,7 @@
 #include "Framework/Data/FLOWLOGS/FLOWLOG_ENTITIES.h"
 #include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
 #include "Framework/Player/EDU_CORE_PlayerController.h"
+#include "Net/UnrealNetwork.h"
 
 //------------------------------------------------------------------------------
 // Construction & Object Lifetime Management
@@ -12,7 +13,8 @@
 void AEDU_CORE_AbstractEntity::BeginPlay()
 { FLOW_LOG
 	Super::BeginPlay();
-
+	
+	// Add entity to ServerTick
 	if(bServerTickEnabled && GetNetMode() != NM_Client)
 	{
 		if (AEDU_CORE_GameMode* GameMode = Cast<AEDU_CORE_GameMode>(GetWorld()->GetAuthGameMode()))
@@ -20,6 +22,8 @@ void AEDU_CORE_AbstractEntity::BeginPlay()
 			GameMode->AddToAbstractEntityArray(this);
 		}
 	}
+
+	// Add entity to ClientTick
 	if(bClientTickEnabled && GetNetMode() == NM_Client)
 	{
 		if (AEDU_CORE_PlayerController* LocalController = Cast<AEDU_CORE_PlayerController>(GetWorld()->GetFirstPlayerController()))

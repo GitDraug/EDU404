@@ -14,7 +14,7 @@
   A Waypoint that can be selected and moved.
 ------------------------------------------------------------------------------*/
 
-UCLASS()
+UCLASS(Abstract)
 class EDU_CORE_API AEDU_CORE_Waypoint_Move : public AEDU_CORE_Waypoint
 {
 	GENERATED_BODY()

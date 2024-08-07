@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "InputAction.h"
 #include "Engine/DataAsset.h"
 #include "EDU_CORE_ControllerInputDataAsset.generated.h"
 
@@ -29,17 +28,22 @@ public:
 	  EnhancedInputComponent->BindAction.
 	  
 	  The Mapping Context (in the Editor) binds BP Input Actions to
-	  keyboard keys. In this plugin, all mapping contexts (keybindings) are
+	  keyboard keys. In this project, all mapping contexts (keybindings) are
 	  set in the Controller. Pawns instead manage their own, internal
 	  functionality, but not keybindings.
+
+	  It is possible to have overlapping and shared contexts, but from my [Draug]
+	  experience, it's a bad idea. It's extra work to jump around and make
+	  sure overlapping contexts work well together instead of separation
+	  of concerns, even if it involves some code duplication.
 
 	  The BP Input Actions in the editor are actually stand-alone. They act as
 	  extensions of the triggers in the C++ file that binds C++ functionality
 	  for pointers in this file.
 	  
 	  The UInputAction pointers in this class are bound to BP through
-	  a DataAsset in the editor inherited from this DataAsset. The DataAsset
-	  is the most important, without it C++ can't connect to BP.
+	  a DataAsset in the editor inherited from this DataAsset. The derived DataAsset
+	  in the Editor is the most important, without it C++ can't connect to BP.
 	--------------------------------------------------------------------------*/
 	
 	// Default Controller (Shared) Context
