@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Entities/EDU_CORE_MobileEntity.h"
-#include "Entities/EDU_CORE_PhysicalEntity.h"
+#include "Entities/EDU_CORE_PhysicsEntity.h"
 #include "GameFramework/Pawn.h"
 #include "Interfaces/EDU_CORE_Selectable.h"
 #include "EDU_CORE_TestPawn.generated.h"

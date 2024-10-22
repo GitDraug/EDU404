@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
+#include "Framework/Data/DataTypes/EDU_CORE_DataTypes.h"
 #include "EDU_CORE_CommandInterface.generated.h"
 
 class AEDU_CORE_Waypoint;
@@ -38,9 +39,15 @@ class EDU_CORE_API IEDU_CORE_CommandInterface
 	GENERATED_BODY()
 
 public:
-	virtual void AddWaypoint(AEDU_CORE_Waypoint*, int32 FormationIndex, bool Queue) = 0;
+	virtual void AddWaypoint(
+		AEDU_CORE_Waypoint* Waypoint,				// Pointer to Waypoint
+		const EEDU_CORE_WaypointType WaypointType,	// Waypoints have various orders. 
+		const FVector& WaypointLocation,			// Waypoints WorldLocation
+		const FRotator& WaypointRotation,			// Waypoints WorldRotation
+		const FVector& WaypointForwardVector,		// Used for Formation, to know which way the formation is facing.
+		const FVector& WaypointRightVector,			// Used for Formation, te set left and right offsets.
+		const int32 FormationIndex,					// Used for Formation, to know where in the formation this entity should be.
+		const bool Queue							// Is this a queued waypoint?
+	) = 0;
 	virtual void RemoveWaypoint(AEDU_CORE_Waypoint* Waypoint) = 0;
-	
-	virtual void Command_NavigateTo(int32 FormationIndex, AEDU_CORE_Waypoint* WayPoint, bool QueueWaypoint = false) = 0;
-	virtual void Command_LookAt(int32 FormationIndex, AEDU_CORE_Waypoint* WayPoint, bool QueueWaypoint = false) = 0;
 };

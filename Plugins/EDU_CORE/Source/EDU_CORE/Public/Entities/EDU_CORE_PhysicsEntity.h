@@ -4,112 +4,57 @@
 
 #include "CoreMinimal.h"
 #include "EDU_CORE_SelectableEntity.h"
-#include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
-#include "EDU_CORE_PhysicalEntity.generated.h"
+#include "EDU_CORE_PhysicsEntity.generated.h"
 
-class UBoxComponent;
-class USphereComponent;
+class UPrimitiveComponent;
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
 --------------------------------------------------------------------------------
-  En entity that implements gravity on the server and interpolates translation
-  to clients. Derived class with self-propulsion is MobileEntity
+  En entity that implements Async Physics on the server and interpolates its
+  translation to clients. Derived class with self-propulsion is MobileEntity.
 ------------------------------------------------------------------------------*/
 
-UCLASS(Abstract)
-class EDU_CORE_API AEDU_CORE_PhysicalEntity : public AEDU_CORE_SelectableEntity
+UCLASS()
+class EDU_CORE_API AEDU_CORE_PhysicsEntity : public AEDU_CORE_SelectableEntity
 {
 	GENERATED_BODY()
 	
 //------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
+public:
+	// Sets default values for this actor's properties
+	AEDU_CORE_PhysicsEntity();
+
 protected:
-	friend AEDU_CORE_GameMode; // GameMode is almighty.
-	AEDU_CORE_PhysicalEntity();
-	
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:
-	virtual void ServerPhysicsCalc(float DeltaTime);
-	virtual void ServerPhysicsExec(float DeltaTime);
-
 	// Override GetLifetimeReplicatedProps
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
 protected:
-	// Pointer to the created physics component
-	UPROPERTY(EditDefaultsOnly)
-	TObjectPtr<UBoxComponent> PhysicsComponent;
-
-//------------------------------------------------------------------------------
-// Overlap Events
-//------------------------------------------------------------------------------
-protected:
-	bool Overlapping;
-	
+	// Pointer to the ShapeComponent that will be manipulated by the Physics Engine.
 	UPROPERTY()
-	TArray<AActor*> OverlapArray;
-	
-	// Event handler functions
-	UFUNCTION()
-	virtual void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent,
-						AActor* OtherActor,
-						UPrimitiveComponent* OtherComponent,
-						int32 OtherBodyIndex,
-						bool bFromSweep,
-						const FHitResult& SweepResult);
+	TObjectPtr<UPrimitiveComponent> PhysicsComponent;
 
-	UFUNCTION()
-	virtual void OnOverlapEnd(UPrimitiveComponent* OverlappedComponent,
-					  AActor* OtherActor,
-					  UPrimitiveComponent* OtherComponent,
-					  int32 OtherBodyIndex);
-
-	virtual void SimpleCollisionReaction(AActor* OtherActor);
-	
-	//------------------------------------------------------------------------------
-	// Simple gravity
-	//------------------------------------------------------------------------------
-	virtual void SimpleGravityCalc(float DeltaTime); // Multithreaded Calculations
-	virtual void SimpleGravityExe(); // Final Server execution
-
-	int16 FrameCounter;
-	bool bTraceForGround = true;
-	float FallSpeed = 0.f;
-	FVector NewHeight; // ServerExe
-	
 //------------------------------------------------------------------------------
 // Network Functionality
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------	
 public:
-	UPROPERTY(EditAnywhere,
-	Category = "Ground Offset",
-	meta = (DisplayName = "Offset the Root component form the ground.",
-	ToolTip = "The simplified server Physics gravity function traces fro ground, use this to offset the root physics component, if simulating the chest peice of an infantry unit for example."))
-	float GroundOffset = 0.f;
 
-	UPROPERTY(EditDefaultsOnly,
-		Category = "Physics tick",
-		meta = (DisplayName = "Enable Simplimfied Server Physics",
-		ToolTip = "Uses simplified physics on the server instead of true physics."))
-	bool bEnableSimpleServerPhysicsOnly = false;
-	
-	UPROPERTY(EditDefaultsOnly,
-		Category = "Physics tick",
-		meta = (DisplayName = "Enable Server Physics",
-		ToolTip = "Adds this entity to the Aggregated Physics Tick in the GameMode"))
-	bool bEnableServerPhysics = false;
-	
-	UPROPERTY(EditDefaultsOnly,
-		Category = "Physics tick",
-		meta = (DisplayName = "Enable Client Physics",
-		ToolTip = "Adds this entity to the Aggregated Physics Tick in the PlayerController"))
-	bool bEnableClientPhysics = false;
+	//---------------------------------------------------------------
+	// Server Aggregated Tick
+	//--------------------------------------------------------------
+	virtual void ServerPhysicsCalc(float DeltaTime);
+	virtual void ServerPhysicsExec(float DeltaTime);	
 
+	//---------------------------------------------------------------
+	// Public Editor Settings
+	//--------------------------------------------------------------	
 	UPROPERTY(EditDefaultsOnly,
 		Category = "Decoupled, Non - Replicated, Client Independent Physics.",
 		meta = (DisplayName = "Enable Client-Sided Independent Physics",
@@ -121,18 +66,18 @@ public:
 		meta = (DisplayName = "Linear Interpolation for location",
 		ToolTip = "Smooths location client-side, inbetween server updates. Only turn this on if you expect this entity to change location during play."))
 	bool bLerpLocation;
+
+	UPROPERTY(EditDefaultsOnly,
+		Category = "Replicated, Client - Sided, Physics tick",
+		meta = (DisplayName = "Linear Interpolation for rotation",
+		ToolTip = "Smooths rotation client-side, inbetween server updates. Only turn this on if you expect this entity to change rotation during play."))
+	bool bLerpRotation;
 	
 	UPROPERTY(EditDefaultsOnly,
 	Category = "Replicated, Client - Sided, Physics tick",
 		meta = (DisplayName = "Linear Interpolation for scale",
 		ToolTip = "Smooths sale client-side, inbetween server updates. Only turn this on if you expect this entity's hitbox to change scale or shape during play."))
 	bool bLerpScale;
-	
-	UPROPERTY(EditDefaultsOnly,
-		Category = "Replicated, Client - Sided, Physics tick",
-		meta = (DisplayName = "Linear Interpolation for rotation",
-		ToolTip = "Smooths rotation client-side, inbetween server updates. Only turn this on if you expect this entity to change rotation during play."))
-	bool bLerpRotation;
 	
 	// Interpolate towards the replicated transform.
 	FVector StartLocation;
@@ -180,5 +125,5 @@ private:
 //------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------
-	
+
 };

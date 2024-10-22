@@ -2,9 +2,11 @@
 
 
 #include "UI/HUD/EDU_CORE_HUD.h"
-#include "EngineUtils.h"
 #include "Framework/Data/FLOWLOGS/FLOWLOG_UI.h"
+#include "Framework/Player/EDU_CORE_PlayerController.h"
 #include "Interfaces/EDU_CORE_Selectable.h"
+
+#include "EngineUtils.h"
 
 //------------------------------------------------------------------------------
 // Construction & Init
@@ -111,7 +113,6 @@ void AEDU_CORE_HUD::DrawHUD()
 	FrameCounter = 0;
 }
 
-
 void AEDU_CORE_HUD::DetectEntitiesInSelectionRectangle(const TSubclassOf<class AEDU_CORE_SelectableEntity>& ClassFilter, const FVector2D& FirstPoint, const FVector2D& SecondPoint, TArray<AEDU_CORE_SelectableEntity*>& OutEntityArray) const
 { FLOW_LOG
     OutEntityArray.Reset();
@@ -141,16 +142,17 @@ void AEDU_CORE_HUD::DetectEntitiesInSelectionRectangle(const TSubclassOf<class A
     	
     	// Skip this entity and continue to the next if it is invalid
     	if(!EachEntity) { continue; }
-    	if(!EachEntity->bCanBeSelected) {continue; }
+    	if(!EachEntity->bCanBeSelected) { continue; }
 
         // Get Pawn Bounds
-        const FBox EachEntityBounds = EachEntity->GetComponentsBoundingBox();
-
+		// const FBox EachEntityBounds = EachEntity->GetComponentsBoundingBox();
+    	const FBox EachEntityBounds = EachEntity->GetComponentsBoundingBox();
+    	
         // Center
         const FVector BoxCenter = EachEntityBounds.GetCenter();
 
         // Extents
-        const FVector BoxExtents = EachEntityBounds.GetExtent();
+        const FVector BoxExtents = EachEntityBounds.GetExtent() * 0.5f;
 
         // Build 2D bounding box of pawn in screen space
         FBox2D ActorBox2D(ForceInit);

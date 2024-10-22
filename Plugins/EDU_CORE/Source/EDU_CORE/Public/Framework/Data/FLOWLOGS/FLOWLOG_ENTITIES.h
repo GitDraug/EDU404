@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "Framework/Data/FLOWLOGS/FLOWLOG.h"
+
 /*--------------------------------------------------------------------
   Custom Log category, so we can monitor program flow in the console.
   The Macro makes the source less cluttered.
@@ -22,5 +24,3 @@ inline DEFINE_LOG_CATEGORY(FlowLog_ENTITIES_TICK);
 //-------------------------------------------------------
 // Flow Log MACRO, only executed in debug mode.
 //-------------------------------------------------------
-
-#include "FLOWLOG.h"

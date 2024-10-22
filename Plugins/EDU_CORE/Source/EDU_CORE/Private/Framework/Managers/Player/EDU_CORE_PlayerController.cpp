@@ -7,10 +7,8 @@
 #include "UObject/ScriptInterface.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "Entities/EDU_CORE_SelectableEntity.h"
 #include "Entities/EDU_CORE_AbstractEntity.h"
-#include "Entities/EDU_CORE_PhysicalEntity.h"
-#include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
+#include "Entities/EDU_CORE_PhysicsEntity.h"
 
 //------------------------------------------------------------------------------
 // Initialization & Object lifetime management
@@ -55,33 +53,33 @@ void AEDU_CORE_PlayerController::PlayerTick(float DeltaTime)
 				https://georgy.dev/posts/parallel-for-loop/
 				https://georgy.dev/posts/async-task/
 		------------------------------------------------------------------------------*/
-		for (AEDU_CORE_PhysicalEntity* PhysicalEntity : PhysicalEntityArray)
+		for (AEDU_CORE_PhysicsEntity* PhysicsEntity : PhysicsEntityArray)
 		{
 			// Check if the entity pointer is valid (not null)
-			if (PhysicalEntity)
+			if (PhysicsEntity)
 			{
 				// If the entity pointer is valid, call the ParallelTick function on the entity
-				PhysicalEntity->ClientLerpLocation(DeltaTime);
+				PhysicsEntity->ClientLerpLocation(DeltaTime);
 			}
 		}
 		
-		for (AEDU_CORE_PhysicalEntity* PhysicalEntity : PhysicalEntityArray)
+		for (AEDU_CORE_PhysicsEntity* PhysicsEntity : PhysicsEntityArray)
 		{
 			// Check if the entity pointer is valid (not null)
-			if (PhysicalEntity)
+			if (PhysicsEntity)
 			{
 				// If the entity pointer is valid, call the ParallelTick function on the entity
-				PhysicalEntity->ClientLerpRotation(DeltaTime);
+				PhysicsEntity->ClientLerpRotation(DeltaTime);
 			}
 		}
 		
-		for (AEDU_CORE_PhysicalEntity* PhysicalEntity : PhysicalEntityArray)
+		for (AEDU_CORE_PhysicsEntity* PhysicsEntity : PhysicsEntityArray)
 		{
 			// Check if the entity pointer is valid (not null)
-			if (PhysicalEntity)
+			if (PhysicsEntity)
 			{
 				// If the entity pointer is valid, call the ParallelTick function on the entity
-				PhysicalEntity->ClientLerpScale(DeltaTime);
+				PhysicsEntity->ClientLerpScale(DeltaTime);
 			}
 		}
 	}
@@ -105,17 +103,17 @@ void AEDU_CORE_PlayerController::AddToAbstractEntityArray(AEDU_CORE_AbstractEnti
 	}
 }
 
-void AEDU_CORE_PlayerController::AddToPhysicalEntityArray(AEDU_CORE_PhysicalEntity* PhysicalEntity)
+void AEDU_CORE_PlayerController::AddToPhysicsEntityArray(AEDU_CORE_PhysicsEntity* PhysicsEntity)
 { FLOW_LOG
 	// Loop through each entity pointer in the TickingEntityArray (Client Only)
 	if(GetNetMode() == NM_Client)
 	{
-		if (PhysicalEntity) // Check if the Entity is valid
+		if (PhysicsEntity) // Check if the Entity is valid
 		{
 			// Add the entity to the TArray
-			PhysicalEntityArray.AddUnique(PhysicalEntity); // Adds the pointer to the array
+			PhysicsEntityArray.AddUnique(PhysicsEntity); // Adds the pointer to the array
 			// Optionally, log the addition
-			UE_LOG(FLOWLOG_CATEGORY, Log, TEXT("Entity added: %s"), *PhysicalEntity->GetName());
+			UE_LOG(FLOWLOG_CATEGORY, Log, TEXT("Entity added: %s"), *PhysicsEntity->GetName());
 		}
 	}
 }
@@ -210,21 +208,21 @@ void AEDU_CORE_PlayerController::SetupInputSubSystem()
 	FLOW_LOG_ERROR("UEnhancedInputLocalPlayerSubsystem is not working, is module included?");
 }
 
-void AEDU_CORE_PlayerController::SetMappingContext(EEDU_CORE_CurrentPawn Context)
+void AEDU_CORE_PlayerController::SetMappingContext(EEDU_CORE_MappingContext Context)
 { FLOW_LOG
 	switch (Context) {
-	case EEDU_CORE_CurrentPawn::None:
+	case EEDU_CORE_MappingContext::None:
 		FLOW_LOG_WARNING("Switching to Controller")
 		AddInputMappingContext(ControllerInputContext, 0);
 		break;
 		
-	case EEDU_CORE_CurrentPawn::Camera:
+	case EEDU_CORE_MappingContext::Camera:
 		FLOW_LOG_WARNING("Switching to Camera")
 		RemoveInputMappingContext(CharacterInputContext);
 		AddInputMappingContext(CameraInputContext, 0);
 
 		break;
-	case EEDU_CORE_CurrentPawn::Character:
+	case EEDU_CORE_MappingContext::Character:
 		FLOW_LOG_WARNING("Switching to Character")
 		RemoveInputMappingContext(CameraInputContext);
 		AddInputMappingContext(CharacterInputContext, 0);

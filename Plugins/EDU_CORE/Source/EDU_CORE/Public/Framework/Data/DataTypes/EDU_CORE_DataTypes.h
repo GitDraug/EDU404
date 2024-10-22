@@ -45,6 +45,22 @@ enum class EEDU_CORE_InputModifierKey : uint8
 };
 
 UENUM()
+enum class EEDU_CORE_WaypointType : uint8
+{
+	// Default
+	NavigateTo,
+	AttackPosition,
+	ObservePosition,
+};
+
+
+/*--------------------------------------------------------------------------------
+  Formations
+--------------------------------------------------------------------------------
+  This Enum is used by WayPoints and CTRL Groups to allocate a formation
+  position to listeners.
+--------------------------------------------------------------------------------*/
+UENUM()
 enum class EEDU_CORE_Formations : uint8
 {
 	// Default
@@ -56,5 +72,58 @@ enum class EEDU_CORE_Formations : uint8
 	File,
 	Column,
 	StaggeredColumn
+};
+
+UENUM()
+enum class EEDU_CORE_Team : uint8
+{
+	None,
+	Team_1,
+	Team_2,
+	Team_3,
+	Team_4,
+	Team_5,
+	Team_6,
+	Team_7,
+	Team_8,
+	Team_9,
+	Team_10,
+};
+
+UENUM()
+enum class EEDU_CORE_ROE : uint8
+{
+	HoldFire,
+	SelfDefence,
+	FireAtTarget,
+	FireAtPosition,
+	FireAtWill,
+	EngageAtWill
+};
+
+UENUM()
+enum class EEDU_CORE_CombatMode : uint8
+{
+	Indifferent,
+	Safe,
+	Aware,
+	Danger,
+	Stealth,
+};
+
+UENUM()
+enum class EEDU_CORE_Stance : uint8
+{
+	Prone,
+	Crouched,
+	Stand,
+};
+
+UENUM()
+enum class EEDU_CORE_Speed : uint8
+{
+	Slow,
+	Medium,
+	Fast,
 };
 

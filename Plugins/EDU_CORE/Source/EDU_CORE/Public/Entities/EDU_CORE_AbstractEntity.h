@@ -10,9 +10,6 @@
 --------------------------------------------------------------------------------
   AbstractEntity makes use of ParallelTick, a ticking function connected to
   the GameMode that runs an Async Tick. It has no other function.
-
-  Used for elements that come in large scale and require tick,
-  such as bullets or shrapnel.
 ------------------------------------------------------------------------------*/
 
 UCLASS(Abstract)
@@ -30,6 +27,9 @@ public:
 
 	// Called every frame by LocalController (Only exists on the Client)
 	virtual void ClientTick(float DeltaTime);
+
+	// On Destroyed
+	virtual void Destroyed() override;
 
 //------------------------------------------------------------------------------
 // Components

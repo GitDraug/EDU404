@@ -6,8 +6,15 @@
 #include "EDU_CORE_SpectatorCamera.h"
 #include "EDU_CORE_C2_Camera.generated.h"
 
+class EDU_CORE_DataTypes;
 class AEDU_CORE_Waypoint;
-class AEDU_CORE_Waypoint_Move;
+
+/*------------------------------------------------------------------------------
+  Abstract SUPER Class intended to be inherited from.
+--------------------------------------------------------------------------------
+  The C2 (Command and control) camera allows the user to interact with actors
+  and entities in the level. It is a continuation of the SpectatorCamera.
+------------------------------------------------------------------------------*/
 
 UCLASS()
 class EDU_CORE_API AEDU_CORE_C2_Camera : public AEDU_CORE_SpectatorCamera
@@ -32,6 +39,7 @@ public:
 //------------------------------------------------------------------------------
 // Input Setup
 //------------------------------------------------------------------------------
+protected:
 	// Called upon possession by a PlayerController, to bind functionality to input.
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
@@ -44,18 +52,12 @@ public:
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
+protected:
+	// Enum to easily select Team.
+	EEDU_CORE_Team Team;
 	
 	UPROPERTY()
 	TArray<FGuid> ServerIDArray; // Used for selecting entities on the server.
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Waypoints")
-	TSubclassOf<AEDU_CORE_Waypoint> WaypointClass;
-
-	UPROPERTY()
-	TObjectPtr<AEDU_CORE_Waypoint_Move> Waypoint_NavigateTo;
-
-	UPROPERTY()
-	TObjectPtr<AEDU_CORE_Waypoint_Move> Waypoint_LookAt ;
 	
 //---------------------------------------------------------------------------
 // Input Functionality: Mouse
@@ -67,20 +69,20 @@ public:
 	virtual void Input_Mouse_2_Released(const FInputActionValue& InputActionValue) override;
 
 //---------------------------------------------------------------------------
-// Waypoint logic
+// Command logic
 //---------------------------------------------------------------------------
 	
-	virtual void Command_LookAt();
-	virtual void Command_NavigateTo();
+	virtual void CreateWaypoint(const FVector WorldPosition, const EEDU_CORE_WaypointType WaypointType = EEDU_CORE_WaypointType::NavigateTo, const bool Queue = false);
 	
 //---------------------------------------------------------------------------
-// Server logic
+// RPC logic
 //---------------------------------------------------------------------------
 
+	// Adds an Array of GUIDs to SelectionArray
 	UFUNCTION(Server, Reliable)
 	virtual void GetEntitiesOnServer(const TArray<FGuid>& IDArray);
-	
+
+	// Creates a Waypoint with a WorldPosition that AI will look at.
 	UFUNCTION(Server, Reliable)
-	void ServerCommand_LookAt();
-	
+	void Server_CreateWaypoint(const FVector WorldPosition, const EEDU_CORE_WaypointType WaypointType = EEDU_CORE_WaypointType::NavigateTo, const bool Queue = false);
 };

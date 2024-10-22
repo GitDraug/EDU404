@@ -314,7 +314,7 @@ protected:
 	// Utility
 	void MoveCameraAnchor(const FVector2d& Direction, const float& Speed);
 	void CameraTrace();
-	void CursorTrace();
+	void CursorTrace(); // Fires a line-trace and detects whatever is beneath the cursor.
 	
 	void UpdateMouseDirection();
 	void ResetCamera();
@@ -343,6 +343,9 @@ protected:
 	  thus we passed arguments by ref.
 	---------------------------------------------------------------------------*/
 	void GetTerrainPosition(FVector& TargetPos, FVector& LastValidPos) const;
+
+	// Under certain circumstances, like FreeLook, we don't want to register input.
+	bool ShouldReceiveInput() const;
 	
 	/*---------------------------------------------------------------------------
 	  These are all virtual, so they can be overwritten by children.

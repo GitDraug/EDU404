@@ -39,6 +39,7 @@ public:
 	void DrawSelectionMarquee(const FVector2d& MousePosition);
 	void StopDrawingSelectionMarquee();
 	void DetectEntitiesInSelectionRectangle(const TSubclassOf<class AEDU_CORE_SelectableEntity>& ClassFilter, const FVector2D& FirstPoint, const FVector2D& SecondPoint, TArray<AEDU_CORE_SelectableEntity*>& OutEntityArray) const;
+	
 	void ResetSelectionRectangleArray() { SelectionRectangleArray.Reset(); }
 	void EmptySelectionRectangleArray() { SelectionRectangleArray.Empty(); }
 	

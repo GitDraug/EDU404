@@ -2,14 +2,18 @@
 
 #pragma once
 
+#include "Framework/Data/DataTypes/EDU_CORE_DataTypes.h"
+
 #include "CoreMinimal.h"
+
 #include "GameFramework/GameModeBase.h"
 #include "EDU_CORE_GameMode.generated.h"
 
 class IEDU_CORE_CommandInterface;
 class AEDU_CORE_MobileEntity;
 class AEDU_CORE_AbstractEntity;
-class AEDU_CORE_PhysicalEntity;
+class AEDU_CORE_PhysicsEntity;
+class AEDU_CORE_Waypoint;
 class URTS_CORE_GameDataAsset;
 
 /*------------------------------------------------------------------------------
@@ -40,6 +44,8 @@ public:
 	AEDU_CORE_GameMode(const FObjectInitializer& ObjectInitializer);
 
 	virtual void Tick(float DeltaTime) override;
+
+	virtual void BeginPlay() override;
 	
 //------------------------------------------------------------------------------
 // Public API
@@ -47,18 +53,60 @@ public:
 public:
 	// Aggregated Tick Arrays
 	void AddToAbstractEntityArray(AEDU_CORE_AbstractEntity* AbstractEntity);
-	void AddToPhysicalEntityArray(AEDU_CORE_PhysicalEntity* PhysicalEntity);
+	void AddToPhysicsEntityArray(AEDU_CORE_PhysicsEntity* PhysicsEntity);
 	void AddToMobileEntityArray(AEDU_CORE_MobileEntity* MobileEntity);
+
+	// Used when checking if a Unit Order came from the right Team.
+	void AddActorToTeamArray(AActor* Actor, EEDU_CORE_Team TeamArray = EEDU_CORE_Team::None);
+	void RemoveActorFromTeamArray(AActor* Actor, EEDU_CORE_Team TeamArray = EEDU_CORE_Team::None);
+
+	// For other Actors to see what actors are on their team.
+	TArray<TObjectPtr<AActor>> GetTeamArray(EEDU_CORE_Team TeamArray = EEDU_CORE_Team::None) const;
 
 	// For Entities and Actors to register across instances.
 	void AddToGuidActorMap(FGuid GUID, AActor* Actor);
-	AActor* FindActorInMap(FGuid GUID) const;
+	TObjectPtr<AActor> FindActorInMap(FGuid GUID) const;
+
+	// Waypoint Management
+	TObjectPtr<AEDU_CORE_Waypoint> GetFreshWaypointFromPool(EEDU_CORE_Team Team = EEDU_CORE_Team::None, const FVector& WorldLocation = FVector::ZeroVector, const FRotator& WorldRotation = FRotator::ZeroRotator);
+	
+	void ReturnWaypointToPool(const TObjectPtr<AEDU_CORE_Waypoint>& Waypoint);
 	
 	FColor DeltaTimeDisplayColor;
+	
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
 //protected:
+	/*--------------------------- AI Waypoint pool ---------------------------------
+  
+	------------------------------------------------------------------------------*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Waypoints")
+	TSubclassOf<AEDU_CORE_Waypoint> WaypointClass;
+	
+	TArray<TObjectPtr<AEDU_CORE_Waypoint>> AvailableWaypointPool;
+	TArray<TObjectPtr<AEDU_CORE_Waypoint>> BusyWaypointPool;	
+	
+	/*------------------------------- Teams ----------------------------------------
+  
+	------------------------------------------------------------------------------*/
+	
+	// Enum to easily select Team.
+	EEDU_CORE_Team Team;
+
+	// Team Arrays
+	TArray<TObjectPtr<AActor>> Team_0_Array;
+	TArray<TObjectPtr<AActor>> Team_1_Array;
+	TArray<TObjectPtr<AActor>> Team_2_Array;
+	TArray<TObjectPtr<AActor>> Team_3_Array;
+	TArray<TObjectPtr<AActor>> Team_4_Array;
+	TArray<TObjectPtr<AActor>> Team_5_Array;
+	TArray<TObjectPtr<AActor>> Team_6_Array;
+	TArray<TObjectPtr<AActor>> Team_7_Array;
+	TArray<TObjectPtr<AActor>> Team_8_Array;
+	TArray<TObjectPtr<AActor>> Team_9_Array;
+	TArray<TObjectPtr<AActor>> Team_10_Array;
+	
 	/*---------------------- Server ID for MP communication  -----------------------
 	  Pointers are local, so we can't use them to send information to the server.
 	  In order for a client to manipulate an instance on the server machine, we
@@ -71,7 +119,6 @@ public:
 	------------------------------------------------------------------------------*/
 	UPROPERTY(Transient)
 	TMap<FGuid, AActor*> GuidActorMap;
-
 	
 	/*---------------------- Server-Side Aggregated Tick ---------------------------
 	  This tick function allows us to aggregate ticks server-side. These are
@@ -91,11 +138,11 @@ public:
 	int32 AbstractEntityIndex = 0;
 	
 	UPROPERTY()
-	TArray<AEDU_CORE_PhysicalEntity*> PhysicalEntityArray;
+	TArray<AEDU_CORE_PhysicsEntity*> PhysicsEntityArray;
 
 	UPROPERTY(EditDefaultsOnly)
-	int32 PhysicalEntityBatch = 10;
-	int32 PhysicalEntityIndex = 0;
+	int32 PhysicsEntityBatch = 10;
+	int32 PhysicsEntityIndex = 0;
 
 	UPROPERTY()
 	TArray<AEDU_CORE_MobileEntity*> MobileEntityArray;

@@ -5,7 +5,6 @@
 #include "Framework/Data/FLOWLOGS/FLOWLOG_ENTITIES.h"
 #include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
 #include "Framework/Player/EDU_CORE_PlayerController.h"
-#include "Net/UnrealNetwork.h"
 
 //------------------------------------------------------------------------------
 // Construction & Object Lifetime Management
@@ -45,4 +44,9 @@ void AEDU_CORE_AbstractEntity::ServerTick(float DeltaTime)
 void AEDU_CORE_AbstractEntity::ClientTick(float DeltaTime)
 { // FLOW_LOG_TICK
 	
+}
+
+void AEDU_CORE_AbstractEntity::Destroyed()
+{ FLOW_LOG
+	Super::Destroyed();
 }

@@ -18,13 +18,13 @@ class AEDU_CORE_HUD;
 class IEDU_CORE_Selectable;
 class AEDU_CORE_SelectableEntity;
 class AEDU_CORE_AbstractEntity;
-class AEDU_CORE_PhysicalEntity;
+class AEDU_CORE_PhysicsEntity;
 
 /*------------------------------------------------------------------------------
   Used By SetMappingContext()
 ------------------------------------------------------------------------------*/
 UENUM()
-enum class EEDU_CORE_CurrentPawn : uint8
+enum class EEDU_CORE_MappingContext : uint8
 {
 	None,
 	Camera,
@@ -78,22 +78,22 @@ public:
 	
 	// Adds entity to the Local PlayerController Tick, running only on a client.
 	void AddToAbstractEntityArray(AEDU_CORE_AbstractEntity* TickingEntity);
-	void AddToPhysicalEntityArray(AEDU_CORE_PhysicalEntity* MobileEntity);
+	void AddToPhysicsEntityArray(AEDU_CORE_PhysicsEntity* MobileEntity);
 	
-	virtual void SetMappingContext(EEDU_CORE_CurrentPawn Context);
+	virtual void SetMappingContext(EEDU_CORE_MappingContext Context);
 	
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
 protected:
-	// Used to Spawn Entities at a certain location.
+	// The Mouse Cursor Position in 2D.
 	FVector2d MousePos;
 	
 	UPROPERTY()
 	FVector PlayerStartLocation;
 
 	UPROPERTY()
-	TObjectPtr<AEDU_CORE_HUD> LocalHUD;
+	TObjectPtr<AEDU_CORE_HUD> LocalHUD; // The HUD is created by the PlayerController, and only ever exist on the client.
 
 	/*---------------------- Client-Side Aggregated Tick ---------------------------
 	  This tick function allows us to aggregate ticks client-side. These are
@@ -113,11 +113,11 @@ protected:
 	int32 AbstractEntityIndex = 0;
 	
 	UPROPERTY()
-	TArray<AEDU_CORE_PhysicalEntity*> PhysicalEntityArray;
+	TArray<AEDU_CORE_PhysicsEntity*> PhysicsEntityArray;
 
 	UPROPERTY(EditDefaultsOnly)
-	int32 PhysicalEntityBatch = 100;
-	int32 PhysicalEntityIndex = 0;
+	int32 PhysicsEntityBatch = 100;
+	int32 PhysicsEntityIndex = 0;
 
 	
 //------------------------------------------------------------------------------
@@ -147,7 +147,7 @@ protected:
 
 	// Keeps track of what InputContext (keymapping) we want to use.
 	UPROPERTY()
-	EEDU_CORE_CurrentPawn CurrentPawn;
+	EEDU_CORE_MappingContext MappingContext;
 	
 	/*------------------------------------------------------------------------------
 	  Internal Pointers to InputContexts: these are either loaded with

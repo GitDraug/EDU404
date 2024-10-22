@@ -41,6 +41,7 @@ public class EDU_CORE : ModuleRules
 				"UMG",
 				"EnhancedInput",
 				"CommonUI",
+				"PhysicsCore",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
