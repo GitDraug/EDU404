@@ -42,6 +42,7 @@ public class EDU_CORE : ModuleRules
 				"EnhancedInput",
 				"CommonUI",
 				"PhysicsCore",
+				"NavigationSystem" 
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

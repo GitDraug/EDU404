@@ -17,6 +17,7 @@ class EDU_CORE_SelectableEntity;
   Base class for a Waypoint that can be selected and moved.
 ------------------------------------------------------------------------------*/
 
+
 UCLASS(Abstract)
 class EDU_CORE_API AEDU_CORE_Waypoint : public AEDU_CORE_SelectableEntity
 {
@@ -59,6 +60,7 @@ public:
 	virtual void SetWaypointType(EEDU_CORE_WaypointType InWaypointType);
 	
 	// Getters
+	FORCEINLINE bool GetFormationSyncedRotation() const { return bFormationSyncedRotation; }
 	FORCEINLINE EEDU_CORE_CombatMode GetWaypointCombatMode() const { return CombatMode; };
 	FORCEINLINE EEDU_CORE_WaypointType GetWaypointType() const { return WaypointType; };
 	FORCEINLINE EEDU_CORE_Stance GetWaypointStance() const { return Stance; };
@@ -100,6 +102,9 @@ protected:
 
 	// Center position that members of ListenerArray can offset from.
 	FVector FormationCenter;
+
+	// Should the enteties sync thier rotation with formation?
+	bool bFormationSyncedRotation = false;
 
 	UPROPERTY()
 	EEDU_CORE_CombatMode CombatMode;

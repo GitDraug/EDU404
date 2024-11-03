@@ -37,18 +37,19 @@ public:
 	void SetSelectionMarqueeBGColor(float Red, float Green, float Blue, float Opacity);
 	
 	void DrawSelectionMarquee(const FVector2d& MousePosition);
-	void StopDrawingSelectionMarquee();
-	void DetectEntitiesInSelectionRectangle(const TSubclassOf<class AEDU_CORE_SelectableEntity>& ClassFilter, const FVector2D& FirstPoint, const FVector2D& SecondPoint, TArray<AEDU_CORE_SelectableEntity*>& OutEntityArray) const;
 	
-	void ResetSelectionRectangleArray() { SelectionRectangleArray.Reset(); }
-	void EmptySelectionRectangleArray() { SelectionRectangleArray.Empty(); }
+	void StopDrawingSelectionMarquee();
+	void DetectEntityUnderCursor(const FVector2d& MousePosition, const float& Distance);
+	void DetectEntitiesInSelectionRectangle(const TSubclassOf<class AEDU_CORE_SelectableEntity>& ClassFilter, const FVector2D& FirstPoint, const FVector2D& SecondPoint, TArray<AEDU_CORE_SelectableEntity*>& OutEntityArray) const;
+	void ResetSelectionRectangleArray() { HUDSelectionArray.Reset(); }
+	void EmptySelectionRectangleArray() { HUDSelectionArray.Empty(); }
 	
 	/*------------------------------------------------------------------------------
 	  The use of & in TArray<ASelectableEntity*>& means that the function returns
 	  a reference, which avoids making a copy of the array and allows for
 	  modifications directly on the original array. 
 	------------------------------------------------------------------------------*/
-	FORCEINLINE TArray<AEDU_CORE_SelectableEntity*>& GetSelectionRectangleArray() { return SelectionRectangleArray; } 
+	FORCEINLINE TArray<AEDU_CORE_SelectableEntity*>& GetHUDSelectionArray() { return HUDSelectionArray; } 
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
@@ -95,7 +96,6 @@ private:
 	FLinearColor BGColor {FrameRed, FrameGreen, FrameBlue, BG_Opacity};
 
 	// To keep track of the Mouse
-	FVector2d MousePos;
 	FVector2d InitialMousePos;
 	FVector2d CurrentMousePos;
 
@@ -103,7 +103,7 @@ private:
 	FIntVector2 ScreenSize;
 
 	// Selection Marquee
-	bool bMouseDraw = false;
+	bool bDrawRectangle = false;
 	int8 FrameCounter = 0;
 
 	// Custom PlayerController
@@ -112,12 +112,15 @@ private:
 
 	// Temp Selection Array
 	UPROPERTY()
-	TArray<AEDU_CORE_SelectableEntity*> SelectionRectangleArray;
+	TArray<AEDU_CORE_SelectableEntity*> HUDSelectionArray;
+	
+	FBox CollisionBox; // Replace with your collision box dimensions
 	
 //------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------
 private:
+
 	/*------------------------------------------------------------------------------
 	  This is a bastard of to GetActorsInSelectionRectangle() in HUD.h.
 

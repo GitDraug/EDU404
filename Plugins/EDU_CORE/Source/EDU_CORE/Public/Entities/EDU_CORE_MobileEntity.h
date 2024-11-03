@@ -7,12 +7,17 @@
 #include "Interfaces/EDU_CORE_CommandInterface.h"
 #include "EDU_CORE_MobileEntity.generated.h"
 
+class EDU_CORE_DataTypes;
 class AEDU_CORE_Waypoint;
 class AEDU_CORE_Waypoint_Move;
 class AEDU_CORE_PlayerController;
 class AEDU_CORE_C2_Camera;
+
 class UPhysicalMaterial;
 class USphereComponent;
+
+class UNavigationPath;
+class UNavigationSystemV1;
 
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
@@ -29,7 +34,7 @@ enum class EMovementType : uint8
 	// Can move forward and backward, and must move to turn. 
 		BiDirectional      UMETA(DisplayName = "Bi-Directional"),
 	// Can move forward and backward, and rotate around its center whether moving or not.
-		CanCenterRotate    UMETA(DisplayName = "Bi-Directional with Center Rotation"),
+		CenterRotates		UMETA(DisplayName = "Bi-Directional with Center Rotation"),
 	// Can move in all directions, and rotate around its center whether moving or not.
 		OmniDirectional    UMETA(DisplayName = "Omni-Directional")	
 };
@@ -37,14 +42,16 @@ enum class EMovementType : uint8
 UENUM()
 enum class EMovementOrder : uint8
 {
+	// Just started the game.
+		Disabled		UMETA(DisplayName = "Disabled"),
 	// Ready for orders.	
-		Idle			UMETA(DisplayName = "Idle"),
+		Idle			UMETA(DisplayName = "Ready for orders"),
 	// Navigate to position.
 		Navigate		UMETA(DisplayName = "Move To"),
 	// Come to a controlled stop at the current position.
 		Park			UMETA(DisplayName = "Park"),
 	// Never Move, not for anything.
-		HoldPosition	UMETA(DisplayName = "Hold Position"),	
+		HoldPosition	UMETA(DisplayName = "Hold Position"),
 };
 
 UCLASS()
@@ -62,8 +69,8 @@ protected:
 // Aggregated Server tick
 //------------------------------------------------------------------------------
 public:
-	virtual void ServerMobileCalc(float DeltaTime); 
-	virtual void ServerMobilesExec(float DeltaTime);
+	virtual void ServerMobileCalc(float DeltaTime, int32 CurrentBatchIndex);
+	virtual void ServerMobilesExec(float DeltaTime, int32 CurrentBatchIndex);
 
 	// Fixed Physics Tick for calculations dependent on the physics thread
 	virtual void AsyncPhysicsTickActor(float DeltaTime, float SimTime) override;
@@ -73,9 +80,6 @@ public:
 //------------------------------------------------------------------------------
 public:
 	
-	//-------------------------------------------------------
-	// Waypoint Utility
-	//-------------------------------------------------------
 	virtual void AddWaypoint(AEDU_CORE_Waypoint* Waypoint, const EEDU_CORE_WaypointType WaypointType, const FVector& WaypointLocation, const FRotator& WaypointRotation, const FVector& WaypointForwardVector, const FVector& WaypointRightVector, const int32 FormationIndex, const bool Queue) override;
 	virtual void RemoveWaypoint(AEDU_CORE_Waypoint* Waypoint) override;
 	virtual void ClearAllWaypoints();
@@ -83,35 +87,44 @@ public:
 	// Waypoint need to update listeners about FormationLocation whenever an entity leaves the formation.
 	virtual void UpdateFormationLocation(const FVector WaypointLocation, FRotator WaypointRotation, FVector WaypointForwardVector, FVector WaypointRightVector, int32 FormationIndex);
 
+	// Waypoint need to update listeners about FormationLocation whenever an entity leaves the formation.
+	virtual void UpdateBatchIndex(const int32 ServerBatchIndex);
+	
 	// In Case anyone needs our Array.
 	const virtual TArray<AEDU_CORE_Waypoint*>& GetWaypointArray() { return WaypointArray; }
-
-	//-------------------------------------------------------
-	// Server executables
-	//-------------------------------------------------------
-	void AdjustSpeed(float DeltaTime);
-
-	// Align the actor to a target position over time.
-	void Align(float DeltaTime);
 	
 //------------------------------------------------------------------------------
-// Components: Waypoints
+// Components: Waypoints & Navigation
 //------------------------------------------------------------------------------
 protected:
 	UPROPERTY(EditAnywhere, Category = "Waypoints")
 	int8 MaxWaypointCapacity = 10;
 
 	// To queue orders, we need the ability to store waypoints.
+	UPROPERTY()
 	TArray<TObjectPtr<AEDU_CORE_Waypoint>> WaypointArray;
+
+	// If we save this, weäll need to reset it manually all the time.
+	// UPROPERTY()
+	// TObjectPtr<UNavigationPath> NavPath;
 	
-	//Navigation Points retrieved from the NavSystem.
+	UPROPERTY()
+	TObjectPtr<UNavigationSystemV1> NavSystem;
+	
+	// Navigation Points retrieved from the NavSystem.
+	UPROPERTY()
 	TArray<FVector> NavPointArray;
 
 	// Relocate Position in case we need to evade something
+	UPROPERTY()
 	FVector EvadePoint;
 
 	// Place in formation
+	UPROPERTY()
 	int32 SavedFormationIndex;
+
+	// Properties of representation of an 'agent' used by AI navigation/pathfinding.
+	FNavAgentProperties NavAgentProperties;
 
 //------------------------------------------------------------------------------
 // Components: Physics
@@ -125,7 +138,6 @@ protected:
 	TObjectPtr<UPhysicalMaterial>PhysicalMaterial;
 
 	// Collision Sphere used for Dynamic Collision Avoidance
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Physics")
 	TObjectPtr<USphereComponent>DynamicCollisionSphere = nullptr;
 
 	// Current Order
@@ -215,6 +227,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Movement | Rotation")
 	float MaxReverseDistance = 300.f;
 
+	// How far before we start aligning if we are Omni-Directional?
+	UPROPERTY(EditAnywhere, Category = "Movement | Rotation")
+	float OmniDirectionalAlignDistance = 100.f;
+
 	//------------------------------------------------------------
 	// Movement: Formation
 	//------------------------------------------------------------
@@ -226,22 +242,64 @@ protected:
 	// Movement: Collision Detection
 	//------------------------------------------------------------
 
-	// The Collision Detection system creates a dynamic sphere at BeginPlay
-	// that calculates where the actor will be in the future.
+	// The Collision Detection system creates a dynamic sphere at BeginPlay that calculates where the actor will be in the near future.
 	// How large should the sphere radius be?
 	UPROPERTY(EditAnywhere, Category = "Movement | Collision Detection")
 	float CollisionDetectionVolumeRadius  = 50.f;
-	
-	//---------------------------------------------
-	// Timers
-	//---------------------------------------------
-	// Used as a simple timer.
-	float DeltaTimer;
-	float CollisionTimer;
-	
-	float MeasureDeltaTimer;
-	float LastDeltaTime;
 
+	// What collision channel should this prediction volume occupy?
+	UPROPERTY(EditAnywhere, Category = "Movement | Collision Detection")
+	TEnumAsByte<ECollisionChannel> CollisionDetectionVolumeChannel;
+	
+	// What surface does this entity move on?
+	UPROPERTY(EditAnywhere, Category = "Movement | Collision Detection")
+	TEnumAsByte<ECollisionChannel> GroundChannel;
+	
+	// We want to trace a bit forward or back depending on which way we are going.
+	// Recommended is half of the actors' length.
+	UPROPERTY(EditAnywhere, Category = "Movement | Collision Detection")
+	float CollisionDetectionStartOffset  = 35.f;
+
+	// If the collision detection is oversensitive, or not enough, adjust it here.
+	UPROPERTY(EditAnywhere, Category = "Movement | Collision Detection")
+	float CollisionTraceMult  = 1.f;
+
+	//------------------------------------------------------------
+	// Movement: Navigation
+	//------------------------------------------------------------
+
+	// Radius of the hull used for navigation/pathfinding.
+	UPROPERTY(EditAnywhere, Category = "Movement | Navigation")
+	float AgentRadius = -1.f;
+
+	// Total height of the hull used for navigation/pathfinding.
+	UPROPERTY(EditAnywhere, Category = "Movement | Navigation")
+	float AgentHeight = -1.f;
+
+	// Step height to use, or -1 for default value from navdata's config.
+	UPROPERTY(EditAnywhere, Category = "Movement | Navigation")
+	float AgentStepHeight = -1.f;
+
+	// Scale factor to apply to height of bounds when searching for navmesh to project to when nav walking.
+	UPROPERTY(EditAnywhere, Category = "Movement | Navigation")
+	float NavWalkingSearchHeightScale = 0.5f;
+	
+	//---------------------------------------------
+	// Time sliced tick
+	//---------------------------------------------
+	// Issued by GameMode
+	int32 BatchIndex;
+
+	// We use a DeltaTimer for functions that need a Realtime Delay.
+	float DeltaTimer;
+
+	//---------------------------------------------
+	// BoxSize
+	//---------------------------------------------
+	FVector Origin;
+	FVector BoxExtent;
+	float DistanceToGround;
+	
 	//---------------------------------------------
 	// Navigation Data
 	//---------------------------------------------
@@ -257,7 +315,13 @@ protected:
 	// Retrieved from the UnrealWorld(Level)
 	FVector CurrentSpeedVector;
 
-	FVector OldPos;
+	// Actor position saved from the last frame
+	FVector LastPos;
+
+	// Used if the entity is moved against its will
+	FVector DesignatedPos;
+
+	// Measured by measuring the distance between CurrentPos and LastPos
 	float ActualSpeed;
 	
 	//---------------------------------------------
@@ -275,6 +339,9 @@ protected:
 	bool bShouldReverse = false;
 	bool bForceReverse = false;
 
+	// Distance to Position
+	float Distance;
+
 	// Accumulated force over time.
 	float ForceOutput;
 	
@@ -291,7 +358,7 @@ protected:
 	// Align
 	//---------------------------------------------
 	float TurnRate = 0.f;
-	float TurnDistance;
+	
 	float FrictionCompensation;
 	
 	float RotationSpeed;
@@ -305,6 +372,10 @@ protected:
 	FRotator AlignStartRotation;
 	FRotator AlignRotationDistance;
 
+	// How far we need to turn (Always positive)
+	float TurnDistance;
+
+	// The difference in rotation to target (Can be Negative)
 	float RotationDifference;
 	float LastRotationDifference;
 	
@@ -314,9 +385,23 @@ protected:
 	bool bPathIsClear;
 	bool bShouldEvade;
 	bool bShouldEvadeLeft;
+
+	// Predicts future (0.5 second) position.
+	FVector MovementVector;
 	
 //------------------------------------------------------------------------------
-// Functionality
+// Physics Movement
+//------------------------------------------------------------------------------
+protected:
+	void AdjustSpeed();
+
+	// Align the actor to a target position over time.
+	void Align(float DeltaTime);
+	
+	
+	
+//------------------------------------------------------------------------------
+// AI Functionality
 //------------------------------------------------------------------------------
 protected:
 	// Get the first waypoint in the store WaypointArray and retrieve its orders.
@@ -337,22 +422,28 @@ protected:
 	
 	// Check our Alignment to target
 	void CheckAlignment();
+
+	// Check if we are where we're supposed to be, especially when parked.
+	void CheckPosition();
 	
 	// TurnRate calculation for Align().
 	void DetermineTurnSpeed();
+
+	// Fetch velocity vector once per tick and cache it
+	void CalculateCurrentSpeed(const FVector& Vector, float DeltaTime);
+
+	// Calculates distance to target
+	float CalculateDistance(const FVector& CurrentPos) const;
+
+	// Checks if we should reverse
+	void CheckReversalConditions();
+
+	// Checks speed and position
+	void HandleNavigation();
+
+	// Aligns and comes to controlled stop
+	void HandleParking();
 	
-	// Get the 3D rotation TO a target position in 180 Degrees.
-	FRotator GetRotationToTargetPos(const FVector& Target) const;
-
-	// Get the 3D rotation TO a target Actor in 180 Degrees.
-	FRotator GetRotationToTargetActor(const AActor* TargetActor) const;
-
-	// Get the 3D rotation FROM a target position in 180 Degrees.
-	FRotator GetRotationFromTargetPos(const FVector& Target) const;
-
-	// Get the 3D rotation FROM a target Actor in 180 Degrees.
-	FRotator GetRotationFromTargetActor(const AActor* TargetActor) const;
-
 //------------------------------------------------------------------------------
 // Functionality: Collision avoidance
 //------------------------------------------------------------------------------
@@ -360,7 +451,7 @@ protected:
 	// Crates a Collision Sphere that other entities check against
 	void CreateCollisionSphere();
 
-	// Crates a Collision Sphere that other entities check against
+	// Updates the Collision Sphere with future position
 	void UpdateCollisionSphere(const FVector& CollisionSpherePosition) const;
 	
 	// Checks all directions in order: Front, Right, Left, Back, and returns an EvadePoint if it is found
@@ -368,4 +459,19 @@ protected:
 
 	// Helper function: Traces in certain direction
 	bool IsPathClear(const FVector& TraceStartLocation, const FVector& TraceEndLocation, FHitResult& HitResult, const FCollisionQueryParams& QueryParams) const;
+
+
+//------------------------------------------------------------------------------
+// Functionality: Navigation
+//------------------------------------------------------------------------------
+
+	// Request a NavPath from UNavigationSystemV1
+	void RequestPath(const FVector& Start, const FVector& End);
+
+	// Request a NavPath Async
+	void RequestPathAsync(const FVector& Start, const FVector& End);
+
+	// Execute AsyncPath
+	void OnRequestPathAsyncComplete(uint32 RequestID, ENavigationQueryResult::Type Result, FNavPathSharedPtr Path);
+	
 };

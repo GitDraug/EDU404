@@ -124,34 +124,21 @@ public:
 	  This tick function allows us to aggregate ticks server-side. These are
 	  excellent for batch executions, such as blending occasional Server updates.
 
-	  EntityBatch: Represents the number of entities to process in each tick.
-	  The loop will run EntityBatch times, allowing for controlled batch processing
-	  of entities.
-	  
-	  Index tracks which element in the EntityArray is being processed.
+	  BatchIndex allows us to pass tick groups to our array members, so only
+	  members of the CurrentBatchIndex will process logic.
 	------------------------------------------------------------------------------*/
 	UPROPERTY()
 	TArray<AEDU_CORE_AbstractEntity*> AbstractEntityArray;
-
-	UPROPERTY(EditDefaultsOnly)
-	int32 AbstractEntityBatch = 100;
-	int32 AbstractEntityIndex = 0;
 	
 	UPROPERTY()
 	TArray<AEDU_CORE_PhysicsEntity*> PhysicsEntityArray;
 
-	UPROPERTY(EditDefaultsOnly)
-	int32 PhysicsEntityBatch = 10;
-	int32 PhysicsEntityIndex = 0;
-
 	UPROPERTY()
 	TArray<AEDU_CORE_MobileEntity*> MobileEntityArray;
 
-	UPROPERTY(EditDefaultsOnly)
-	int32 MobileEntityBatch = 50;
-	int32 MobileEntityIndex = 0;
-
-	int32 FrameCounter;
+	// Used for time slicing, passing the BatchIndex being processed.
+	int32 BatchIndex;
+	int32 CurrentBatchIndex = 0;
 	
 	IEDU_CORE_CommandInterface* CommandInterface;
 	

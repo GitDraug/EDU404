@@ -66,7 +66,7 @@ void AEDU_CORE_SpectatorCamera::PawnClientRestart()
 	// Restart if the cast failed.
 	if(!LocalController) { PawnClientRestart(); return; }
 	if(LocalController)
-	// FLOW_LOG_ONSCREEN_MESSAGE("LocalController Saved Successfully.")
+	// FLOW_LOG_ONSCREEN_MESSAGE("PlayerController Saved Successfully.")
 
 	// Now that we have the right type of the controller, we can use it to get the right HUD.
 	LocalHUD = LocalController->GetHUD<AEDU_CORE_HUD>();
@@ -83,12 +83,12 @@ void AEDU_CORE_SpectatorCamera::Tick(float DeltaTime)
 { // FLOW_LOG_TICK
 	Super::Tick(DeltaTime);
 	
-	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.X %f"), MouseDirection.X));
-	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.Y %f"), MouseDirection.Y));
-
+	// GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan, FString::Printf(TEXT("Elements in CameraSelectionArray: %d "), CameraSelectionArray.Num()));
+	
 	// Debug Messages
 	/*-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan, FString::Printf(TEXT("Elements in SelectionArray: %d "), SelectionArray.Num()));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.X %f"), MouseDirection.X));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.Y %f"), MouseDirection.Y));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Emerald, FString::Printf(TEXT("Elements in Ctrl Group 1: %d "), CTRL_Group_1.GroupArray.Num()));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Emerald, FString::Printf(TEXT("Elements in Ctrl Group 2: %d "), CTRL_Group_2.GroupArray.Num()));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Emerald, FString::Printf(TEXT("Elements in Ctrl Group 3: %d "), CTRL_Group_3.GroupArray.Num()));
@@ -129,9 +129,9 @@ void AEDU_CORE_SpectatorCamera::Tick(float DeltaTime)
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MousePosY %f"), MousePos.Y));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MousePosX %f"), MousePos.X));
 
-	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Green, FString::Printf(TEXT("bShowMouseCursor %d"), LocalController->bShowMouseCursor));
-	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Green, FString::Printf(TEXT("bEnableClickEvents %d"), LocalController->bEnableClickEvents));
-	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Green, FString::Printf(TEXT("bEnableMouseOverEvents %d"), LocalController->bEnableMouseOverEvents));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Green, FString::Printf(TEXT("bShowMouseCursor %d"), PlayerController->bShowMouseCursor));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Green, FString::Printf(TEXT("bEnableClickEvents %d"), PlayerController->bEnableClickEvents));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Green, FString::Printf(TEXT("bEnableMouseOverEvents %d"), PlayerController->bEnableMouseOverEvents));
 
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.X %f"), MouseDirection.X));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, FString::Printf(TEXT("MouseDirection.Y %f"), MouseDirection.Y));
@@ -139,23 +139,26 @@ void AEDU_CORE_SpectatorCamera::Tick(float DeltaTime)
 	
 	// Conditional Tick
 	if(SpringArmComponent == nullptr || InputData == nullptr || !bIsInitialized) { return; }
-	
-	CursorTrace();
 
-	// Used for rotating waypoints and units
-	if(bMouse_2)
+	/*--------------------- Frame limited tick functions ---------------------------
+	  Most tick functions don't need to run 30+ times a second. A function running
+	  every third tick still runs 10 times a second at 30 FPS.
+
+	  The FrameCounter measures frames passed since we last called the function,
+	  we then reset the counter.
+	------------------------------------------------------------------------------*/
+	if (FrameCounter++ < 3)
 	{
-		Mouse_2_PressedTime += DeltaTime; // TimeGate before we start doing calculations.
-		if(Mouse_2_PressedTime > MousePressDelay)
-		{
-			// Rotate the vector towards the cursor.
-			CursorRotation = (CursorWorldPos - SavedCursorWorldPos).Rotation();
-			return;
-		}
-		// Else: Reset rotation
-		CursorRotation = FRotator(0.f,0.f,0.f);
+		CursorTrace();
 	}
-	
+	else
+	{
+		FrameCounter = 0;
+	}
+
+	//-------------------------------------------------------------------------------------------
+	// Camera zoom and Location
+	//-------------------------------------------------------------------------------------------
 	if(bZoomIn || bZoomOut)
 	{
 		UpdateCameraZoom(DeltaTime);
@@ -165,7 +168,9 @@ void AEDU_CORE_SpectatorCamera::Tick(float DeltaTime)
 		}
 	}
 
+	//-------------------------------------------------------------------------------------------
 	// We put Interpolation on a timer to stop it from ticking all the time.
+	//-------------------------------------------------------------------------------------------
 	if(InterpTimer > 0 && bInterpMov)
 	{
 		UpdateCameraLocation(DeltaTime);
@@ -186,8 +191,10 @@ void AEDU_CORE_SpectatorCamera::Tick(float DeltaTime)
 	{
 		bInterpRot = false;
 	}
-	
+
+	//-------------------------------------------------------------------------------------------
 	// EdgeScroll will interfere with FreeLook and MouseDrag.
+	//-------------------------------------------------------------------------------------------
 	if(bFreeLook && !bMouseDrag && !bAutoScroll)
 	{
 		FreeLook();
@@ -195,21 +202,27 @@ void AEDU_CORE_SpectatorCamera::Tick(float DeltaTime)
 		return;
 	}
 
+	//-------------------------------------------------------------------------------------------
 	// MouseDrag will interfere with FreeLook and edgeScroll.
+	//-------------------------------------------------------------------------------------------
 	if(bMouseDrag && !bFreeLook&& !bAutoScroll)
 	{
 		MouseDrag();
 		return;
 	}
-	
+
+	//-------------------------------------------------------------------------------------------
 	// MouseDrag and FreeLook interferes with EdgeScroll
+	//-------------------------------------------------------------------------------------------
 	if(bAutoScroll && !bFreeLook && !bMouseDrag)
 	{
 		AutoScroll();
 		return;
 	}
-	
+
+	//-------------------------------------------------------------------------------------------
 	// MouseDrag and FreeLook interferes with EdgeScroll
+	//-------------------------------------------------------------------------------------------
 	if(bEdgeScroll == true)
 	{
 		EdgeScroll();
@@ -345,7 +358,7 @@ void AEDU_CORE_SpectatorCamera::SetupPlayerInputComponent(UInputComponent* Playe
 
 void AEDU_CORE_SpectatorCamera::SetPlayerInputMode()
 { FLOW_LOG
-	//if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalController->GetInputSubsystem())
+	//if(UEnhancedInputLocalPlayerSubsystem* InputSubsystem = PlayerController->GetInputSubsystem())
 	//{
 		FInputModeGameAndUI InputMode; // Settings container
 		InputMode.SetHideCursorDuringCapture(false); // Whether to hide the cursor during temporary mouse capture caused by a mouse down
@@ -446,7 +459,7 @@ void AEDU_CORE_SpectatorCamera::CameraTrace()
 		{
 			// Define the start and end points of the trace
 			FVector TraceStart = WorldLocation;
-			FVector TraceEnd = WorldLocation + (WorldDirection * (ZoomTraceLength+SpringArmComponent->TargetArmLength));
+			FVector TraceEnd = TraceStart + (WorldDirection * (ZoomTraceLength+SpringArmComponent->TargetArmLength));
 			
 			FHitResult CameraTraceResult;
 			FCollisionQueryParams CameraTraceCollisionParams;
@@ -528,19 +541,9 @@ void AEDU_CORE_SpectatorCamera::CameraTrace()
 
 void AEDU_CORE_SpectatorCamera::CursorTrace()
 { // FLOW_LOG_TICK
-	/*--------------------- Frame limited tick functions ---------------------------
-	  Most tick functions don't need to run 30+ times a second. A function running
-	  every third tick still runs 10 times a second.
-  
-	  The FrameCounter measures frames passed since we last called the function,
-	  we then reset the counter.
-	------------------------------------------------------------------------------*/
-	if(FrameCounter < 3) { FrameCounter++; 	return; }
-	else { FrameCounter = 0; }
-
 	FHitResult CameraTraceResult;
 	FCollisionQueryParams CameraTraceCollisionParams;
-	
+
 	// Get the mouse position
 	FVector2d MousePos;
 	if (LocalController && LocalController->GetMousePosition(MousePos.X, MousePos.Y))
@@ -551,7 +554,7 @@ void AEDU_CORE_SpectatorCamera::CursorTrace()
 		{
 			// Define the start and end points of the trace
 			FVector TraceStart = WorldLocation;
-			FVector TraceEnd = WorldLocation + (WorldDirection * (ZoomTraceLength+SpringArmComponent->TargetArmLength));
+			FVector TraceEnd = TraceStart + (WorldDirection * (ZoomTraceLength + SpringArmComponent->TargetArmLength));
 			
 			// Perform the CameraTrace // TODO: It would be best to make a custom CollisionProfile or channel for only Ground and Selectables.
 			if(GetWorld()->LineTraceSingleByChannel(CameraTraceResult, TraceStart, TraceEnd, ECC_Visibility, CameraTraceCollisionParams))
@@ -915,7 +918,7 @@ void AEDU_CORE_SpectatorCamera::MouseDrag()
 // Functionality : Selection Controls
 //------------------------------------------------------------------------------
 
-void AEDU_CORE_SpectatorCamera::CopyEntitiesInHUDArray()
+void AEDU_CORE_SpectatorCamera::CopyEntitiesInHUDSelectionArray()
 { FLOW_LOG
 	
 	/*----------------------------------------------------------------------------
@@ -924,23 +927,23 @@ void AEDU_CORE_SpectatorCamera::CopyEntitiesInHUDArray()
 	  we need to tell the server to copy the Array on the server instance.
 	----------------------------------------------------------------------------*/
 	
-	SelectionArray = LocalHUD->GetSelectionRectangleArray();
+	CameraSelectionArray = LocalHUD->GetHUDSelectionArray();
 	SelectEntitiesInRectangle();
 	ResetHUDSelectionArray();
 }
 
 void AEDU_CORE_SpectatorCamera::ReviseSelection()
 { FLOW_LOG
-	for (AEDU_CORE_SelectableEntity* Entity : LocalHUD->GetSelectionRectangleArray())
+	for (AEDU_CORE_SelectableEntity* Entity : LocalHUD->GetHUDSelectionArray())
 	{
-		if (!SelectionArray.Contains(Entity))
+		if (!CameraSelectionArray.Contains(Entity))
 		{
-			SelectionArray.AddUnique(Entity);
+			CameraSelectionArray.AddUnique(Entity);
 			FLOW_LOG_WARNING("Adding")
 		}
 		else
 		{
-			SelectionArray.Remove(Entity);
+			CameraSelectionArray.Remove(Entity);
 			FLOW_LOG_WARNING("Removing")
 		}
 	}
@@ -950,31 +953,31 @@ void AEDU_CORE_SpectatorCamera::ReviseSelection()
 
 void AEDU_CORE_SpectatorCamera::ResetCameraSelectionArray()
 { FLOW_LOG
-	for(AEDU_CORE_SelectableEntity* Entity : SelectionArray)
+	for(AEDU_CORE_SelectableEntity* Entity : CameraSelectionArray)
 	{
 		if(Entity) // Entities might be dead or deleted.
 		{
 			Entity->UnSelectActor();
 		}
 	}
-	SelectionArray.Reset();
+	CameraSelectionArray.Reset();
 }
 
 void AEDU_CORE_SpectatorCamera::ResetHUDSelectionArray() const
 { FLOW_LOG
-	for(AEDU_CORE_SelectableEntity* Entity : LocalHUD->GetSelectionRectangleArray())
+	for(AEDU_CORE_SelectableEntity* Entity : LocalHUD->GetHUDSelectionArray())
 	{
 		if(Entity) // Entities might be dead or deleted.
 		{
 			Entity->UnRectangleHighlightActor();
 		}
 	}
-	LocalHUD->GetSelectionRectangleArray().Reset();
+	LocalHUD->GetHUDSelectionArray().Reset();
 }
 
 void AEDU_CORE_SpectatorCamera::SelectEntitiesInRectangle()
 { FLOW_LOG
-	for(AEDU_CORE_SelectableEntity* Entity : SelectionArray)
+	for(AEDU_CORE_SelectableEntity* Entity : CameraSelectionArray)
 	{
 		if(Entity) // Entities might be dead or deleted.
 		{
@@ -986,7 +989,7 @@ void AEDU_CORE_SpectatorCamera::SelectEntitiesInRectangle()
 void AEDU_CORE_SpectatorCamera::CallCtrlGroup(const TArray<AEDU_CORE_SelectableEntity*>& CtrlGroupArray)
 { FLOW_LOG
 	// Ready the Array.
-	if(SelectionArray.Num() > 0)
+	if(CameraSelectionArray.Num() > 0)
 	{
 		ResetCameraSelectionArray();
 	}
@@ -994,10 +997,10 @@ void AEDU_CORE_SpectatorCamera::CallCtrlGroup(const TArray<AEDU_CORE_SelectableE
 	// Now Copy ctrl Group Array.
 	if (CtrlGroupArray.Num() > 0)
 	{
-		SelectionArray = CtrlGroupArray;
+		CameraSelectionArray = CtrlGroupArray;
 		
 		// Select new Entities.
-		for(AEDU_CORE_SelectableEntity* Entity : SelectionArray)
+		for(AEDU_CORE_SelectableEntity* Entity : CameraSelectionArray)
 		{
 			if(Entity) // Make sure they are alive before calling functions on them.
 			{
@@ -1170,30 +1173,49 @@ void AEDU_CORE_SpectatorCamera::Input_AutoScroll_Released(const FInputActionValu
 void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(!ShouldReceiveInput()) { return; }
+	// Check if Ctrl is held, and select all entities of the same class as the one under the cursor.
+	if (ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)
+	{
+		// Trace Search
+		FVector2d MousePos;
+		LocalController->GetMousePosition(MousePos.X, MousePos.Y);
+		float TraceLength = ZoomTraceLength + SpringArmComponent->TargetArmLength;
+		LocalHUD->DetectEntityUnderCursor(MousePos, TraceLength);
+
+		// The HUD needs to finish its search before we copy the Array, if the timer is too fast, Input_Mouse_1_Released still works.
+		FTimerHandle WaitForHUD;
+		GetWorld()->GetTimerManager().SetTimer(WaitForHUD, this, &ThisClass::CopyEntitiesInHUDSelectionArray, 0.1f, false);
+		
+		// Cache the selection array to avoid repeated calls
+		auto HUDSelectionArray = LocalHUD->GetHUDSelectionArray();
+		if (HUDSelectionArray.Num() > 0)
+		{
+			LocalHUD->bSearchWholeScreen = true;
+			LocalHUD->SearchFilter = HUDSelectionArray[0]->GetClass();			
+			CopyEntitiesInHUDSelectionArray();
+		}
+		return;
+	}
 	
 	bMouse_1 = true;
 	
-	// Save the current Mouse Position in the Hud, in case we want to draw a SelectionMarquee.
-	FVector2d MousePos;
-	LocalController->GetMousePosition(MousePos.X, MousePos.Y);
-	LocalHUD->DrawSelectionMarquee(MousePos);
-
-	// Check if we are double-clicking
+	// Check if we are single-clicking
 	float CurrentTime = GetWorld()->GetTimeSeconds();
 	if (CurrentTime - Mouse_1_StartTime > DoubleClickDelay)
 	{
 		FLOW_LOG_WARNING("Single Click")
-		if(ModifierKey != EEDU_CORE_InputModifierKey::Mod_1)
-		{
-			ResetCameraSelectionArray();	
-		}
+		// Save the current Mouse Position in the Hud, in case we want to draw a SelectionMarquee.
+		FVector2d MousePos;
+		LocalController->GetMousePosition(MousePos.X, MousePos.Y);
+		LocalHUD->DrawSelectionMarquee(MousePos);
 		
 		// Update the last click time
 		Mouse_1_StartTime = CurrentTime;
 		return;
 	}
-	
-	if(SelectionArray.Num() > 0 && SelectionArray[0]->GetClass())
+
+	// We only register DoubleClick if an entity is selected
+	if(CameraSelectionArray.Num() > 0 && CameraSelectionArray[0]->GetClass())
 	{
 		Input_Mouse_1_DoubleClick();
 	}
@@ -1201,24 +1223,24 @@ void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Pressed(const FInputActionValue& I
 
 void AEDU_CORE_SpectatorCamera::Input_Mouse_1_DoubleClick()
 { FLOW_LOG_WARNING("DoubleClick!")
-	
-	LocalHUD->SearchFilter = SelectionArray[0]->GetClass(); // This is the actor we are searching for.
-	LocalHUD->bSearchWholeScreen = true; // This will make the Hud run a separate function in its DrawHUD().
-	LocalHUD->StopDrawingSelectionMarquee();
-	
-	// The HUD needs to finish its search before we copy the Array, if the timer is too fast, Input_Mouse_1_Released still works.
-	FTimerHandle WaitForHUD;
-	GetWorld()->GetTimerManager().SetTimer(WaitForHUD, this, &ThisClass::CopyEntitiesInHUDArray, 0.1f, false);
+	LocalHUD->SearchFilter = CameraSelectionArray[0]->GetClass(); // This is the actor we are searching for.
+	LocalHUD->bSearchWholeScreen = true; // This will make the HUD run a separate function in its DrawHUD().
 }
 
 void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(!bMouse_1) { return; }
-	
 	bMouse_1 = false;
+
+	// Trace for entities
+	FVector2d MousePos;
+	LocalController->GetMousePosition(MousePos.X, MousePos.Y);
+	float TraceLength = ZoomTraceLength + SpringArmComponent->TargetArmLength;
+	LocalHUD->DetectEntityUnderCursor(MousePos, TraceLength);
 	
-	LocalHUD->StopDrawingSelectionMarquee();	
-	if(LocalHUD->GetSelectionRectangleArray().Num() > 0)
+	LocalHUD->StopDrawingSelectionMarquee();
+	
+	if(LocalHUD->GetHUDSelectionArray().Num() > 0)
 	{
 		if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_1)
 		{
@@ -1226,9 +1248,16 @@ void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Released(const FInputActionValue& 
 		}
 		else
 		{
-			CopyEntitiesInHUDArray();
+			CopyEntitiesInHUDSelectionArray();
 		}
-	} 
+	}
+	else
+	{
+		if(ModifierKey != EEDU_CORE_InputModifierKey::Mod_1)
+		{
+			ResetCameraSelectionArray();
+		}
+	}	
 }
 
 void AEDU_CORE_SpectatorCamera::Input_Mouse_2_Pressed(const FInputActionValue& InputActionValue)
@@ -1267,7 +1296,7 @@ void AEDU_CORE_SpectatorCamera::Ctrl_Group_1_Pressed(const FInputActionValue& In
 	
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 1
 	{
-		CTRL_Group_1.GroupArray = SelectionArray;
+		CTRL_Group_1.GroupArray = CameraSelectionArray;
 	}
 	
 	else // Call Group 1...
@@ -1282,7 +1311,7 @@ void AEDU_CORE_SpectatorCamera::Ctrl_Group_2_Pressed(const FInputActionValue& In
 	
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
-		CTRL_Group_2.GroupArray = SelectionArray;
+		CTRL_Group_2.GroupArray = CameraSelectionArray;
 	}
 	
 	else // Call Group 1...
@@ -1296,7 +1325,7 @@ void AEDU_CORE_SpectatorCamera::Ctrl_Group_3_Pressed(const FInputActionValue& In
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
-		CTRL_Group_3.GroupArray = SelectionArray;
+		CTRL_Group_3.GroupArray = CameraSelectionArray;
 	}
 	
 	else // Call Group 1...
@@ -1310,7 +1339,7 @@ void AEDU_CORE_SpectatorCamera::Ctrl_Group_4_Pressed(const FInputActionValue& In
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
-		CTRL_Group_4.GroupArray = SelectionArray;
+		CTRL_Group_4.GroupArray = CameraSelectionArray;
 	}
 	
 	else // Call Group 1...
@@ -1324,7 +1353,7 @@ void AEDU_CORE_SpectatorCamera::Ctrl_Group_5_Pressed(const FInputActionValue& In
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
-		CTRL_Group_5.GroupArray = SelectionArray;
+		CTRL_Group_5.GroupArray = CameraSelectionArray;
 	}
 	
 	else // Call Group 1...
@@ -1338,7 +1367,7 @@ void AEDU_CORE_SpectatorCamera::Ctrl_Group_6_Pressed(const FInputActionValue& In
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
-		CTRL_Group_6.GroupArray = SelectionArray;
+		CTRL_Group_6.GroupArray = CameraSelectionArray;
 	}
 	
 	else // Call Group 1...
@@ -1352,7 +1381,7 @@ void AEDU_CORE_SpectatorCamera::Ctrl_Group_7_Pressed(const FInputActionValue& In
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
-		CTRL_Group_7.GroupArray = SelectionArray;
+		CTRL_Group_7.GroupArray = CameraSelectionArray;
 	}
 	
 	else // Call Group 1...
@@ -1366,7 +1395,7 @@ void AEDU_CORE_SpectatorCamera::Ctrl_Group_8_Pressed(const FInputActionValue& In
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
-		CTRL_Group_8.GroupArray = SelectionArray;
+		CTRL_Group_8.GroupArray = CameraSelectionArray;
 	}
 	
 	else // Call Group 1...
@@ -1380,7 +1409,7 @@ void AEDU_CORE_SpectatorCamera::Ctrl_Group_9_Pressed(const FInputActionValue& In
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
-		CTRL_Group_9.GroupArray = SelectionArray;
+		CTRL_Group_9.GroupArray = CameraSelectionArray;
 	}
 	
 	else // Call Group 1...
@@ -1394,7 +1423,7 @@ void AEDU_CORE_SpectatorCamera::Ctrl_Group_0_Pressed(const FInputActionValue& In
 { FLOW_LOG
 	if(ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)// Create Group 2
 	{
-		CTRL_Group_0.GroupArray = SelectionArray;
+		CTRL_Group_0.GroupArray = CameraSelectionArray;
 	}
 	
 	else // Call Group 1...
@@ -1551,6 +1580,6 @@ void AEDU_CORE_SpectatorCamera::SelectAll()
 
 		// The HUD needs to finish its search before we copy the Array, if the timer is too fast, Input_Mouse_1_Released still works.
 		FTimerHandle WaitForHUD;
-		GetWorld()->GetTimerManager().SetTimer(WaitForHUD, this, &ThisClass::CopyEntitiesInHUDArray, 0.1f, false);
+		GetWorld()->GetTimerManager().SetTimer(WaitForHUD, this, &ThisClass::CopyEntitiesInHUDSelectionArray, 0.1f, false);
 	}
 }

@@ -35,39 +35,26 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 	GEngine->AddOnScreenDebugMessage(12, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
 	FString::Printf(TEXT("FPS: %f"), 1.f/DeltaTime));
 	
-	/*------------------------------------------------------------------------------
+	//------------------------------------------------------------------------------
 	// Server-Side Aggregated Tick: AbstractEntityArray // Not in use.
 	//------------------------------------------------------------------------------
-	ParallelFor(AbstractEntityArray.Num(), [this, &DeltaTime ](int32 Index)
-	{
-		if(AbstractEntityArray[Index])
-		{
-			AbstractEntityArray[Index]->ServerAbstractCalc(DeltaTime);
-		}
-	});
 
-	for (AEDU_CORE_AbstractEntity* AbstractEntity : AbstractEntityArray)
-	{
-		if (AbstractEntity)
-		{
-			AbstractEntity->ServerAbstractExec(DeltaTime);
-		}
-	}*/
 	
 	//------------------------------------------------------------------------------
 	// Server-Side Aggregated Tick: PhysicsEntityArray
 	//------------------------------------------------------------------------------	
-	ParallelFor(PhysicsEntityArray.Num(), [this, &DeltaTime ](int32 Index)
+	ParallelFor(PhysicsEntityArray.Num(), [this, DeltaTime](int32 Index)
 	{
-		if(PhysicsEntityArray[Index])
+		if (AEDU_CORE_PhysicsEntity* Entity = PhysicsEntityArray[Index])  // Single access with conditional initialization
 		{
-			PhysicsEntityArray[Index]->ServerPhysicsCalc(DeltaTime);
+			Entity->ServerPhysicsCalc(DeltaTime);
 		}
 	});
 
+	// Sequential execution of ServerPhysicsExec on each entity
 	for (TObjectPtr<AEDU_CORE_PhysicsEntity> PhysicsEntity : PhysicsEntityArray)
 	{
-		if (PhysicsEntity)
+		if (PhysicsEntity)  // Check for valid entity
 		{
 			PhysicsEntity->ServerPhysicsExec(DeltaTime);
 		}
@@ -76,12 +63,12 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 	//------------------------------------------------------------------------------
 	// Server-Side Aggregated Tick: MobileEntityArray
 	//------------------------------------------------------------------------------
-	
-	ParallelFor(MobileEntityArray.Num(), [this, &DeltaTime ](int32 Index)
+
+	ParallelFor(MobileEntityArray.Num(), [this, DeltaTime](int32 Index)
 	{
-		if(MobileEntityArray[Index])
+		if (AEDU_CORE_MobileEntity* Entity = MobileEntityArray[Index])  // Checking for validity only once
 		{
-			MobileEntityArray[Index]->ServerMobileCalc(DeltaTime);
+			Entity->ServerMobileCalc(DeltaTime, CurrentBatchIndex);
 		}
 	});
 		
@@ -89,9 +76,19 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 	{
 		if (MobileEntity)
 		{
-			MobileEntity->ServerMobilesExec(DeltaTime);
+			MobileEntity->ServerMobilesExec(DeltaTime, CurrentBatchIndex);
 		}
 	}
+
+	//------------------------------------------------------------------------------
+	// Reset batch Index
+	//------------------------------------------------------------------------------
+
+	// Original code
+	// CurrentBatchIndex = (CurrentBatchIndex < 10) ? (CurrentBatchIndex + 1) : 1;
+
+	// Refactored version (faster)
+	CurrentBatchIndex = (CurrentBatchIndex % 10) + 1;
 }
 
 void AEDU_CORE_GameMode::BeginPlay()
@@ -125,11 +122,26 @@ void AEDU_CORE_GameMode::AddToPhysicsEntityArray(AEDU_CORE_PhysicsEntity* Physic
 
 void AEDU_CORE_GameMode::AddToMobileEntityArray(AEDU_CORE_MobileEntity* MobileEntity)
 { FLOW_LOG
-	if (MobileEntity)  // Check if the Entity is valid
+	if(MobileEntity)  // Check if the entity is valid
 	{
-		// Add the entity to the TArray
-		MobileEntityArray.Add(MobileEntity); // Adds the pointer to the array
-		//UE_LOG(FLOWLOG_CATEGORY, Log, TEXT("Entity added: %s"), *AbstractEntity->GetName());
+		// Check if the entity is not already in the array and add it if unique
+		int32 Index = MobileEntityArray.AddUnique(MobileEntity);
+
+		if (Index != INDEX_NONE) // Verify the entity was added or already exists
+		{
+			// Calculate the BatchIndex based on Index size
+			if(Index < 100)
+			{
+				 BatchIndex = (Index / 10) + 1;
+			}
+			else
+			{
+				BatchIndex = (Index / 100) + 1;
+			}
+			
+			// Call UpdateBatchIndex on the newly added entity, passing its BatchIndex rather than ArrayIndex
+			MobileEntity->UpdateBatchIndex(BatchIndex);
+		}
 	}
 }
 

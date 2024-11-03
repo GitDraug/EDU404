@@ -100,7 +100,6 @@ protected:
 //------------------------------------------------------------------------------  
 public:
 	FORCEINLINE virtual FVector GetCursorWorldPos() const { return CursorWorldPos; }
-	FORCEINLINE virtual FVector GetSavedCursorWorldPos() const { return SavedCursorWorldPos; }
 
 //------------------------------------------------------------------------------
 // Public Camera Settings
@@ -130,6 +129,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Movement")
 	float DoubleClickDelay = 0.25f;
 
+	// How long do we need to hold RMB before the waypoint starts rotating?
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Control Parameters | Movement")
 	float MousePressDelay = 0.2f;
 	
@@ -182,18 +182,15 @@ protected:
 	FVector2d SavedMousePos;
 	
 	FVector CursorWorldPos;
-	FVector SavedCursorWorldPos; 
-	FRotator CursorRotation; // CursorWorldPos - SavedCursorWorldPos).Rotation()
 
 	// A YX struct to save the Mouse movement Input, using APlayerController->GetInputMouseDelta();
 	FVector2d MouseDirection {0.f, 0.f};
-	
-	float Mouse_2_timer;
+
+	// Used for double click
 	float Mouse_1_StartTime;
-	float Mouse_2_PressedTime;
 	
 	//---------------------------------------------------------------------------
-	// Tick Managment
+	// Tick Management
 	//---------------------------------------------------------------------------
 	// For limiting tick functions to once every X frame.
 	int8 FrameCounter = 0;
@@ -205,7 +202,7 @@ protected:
 	// Group Assignment
 	//---------------------------------------------------------------------------
 	UPROPERTY()
-	TArray<AEDU_CORE_SelectableEntity*> SelectionArray;
+	TArray<AEDU_CORE_SelectableEntity*> CameraSelectionArray;
 	
 	// CTRL Groups
 	FCTRL_Group CTRL_Group_1;
@@ -298,7 +295,7 @@ protected:
 	void ResetCameraSelectionArray(); // Unselect selected entities and empty the Camera's SelectionArray.
 	void ResetHUDSelectionArray() const; // Unselect selected entities and empty the HUD's SelectionArray.
 	void SelectEntitiesInRectangle(); // Save selected entities and empty the HUDArray.
-	virtual void CopyEntitiesInHUDArray(); 
+	virtual void CopyEntitiesInHUDSelectionArray(); 
 	void CallCtrlGroup(const TArray<AEDU_CORE_SelectableEntity*>& CtrlGroupArray);
 	void ReviseSelection(); 	// Remove an Entity from selection, or adds it if not already present. 
 	
@@ -314,7 +311,9 @@ protected:
 	// Utility
 	void MoveCameraAnchor(const FVector2d& Direction, const float& Speed);
 	void CameraTrace();
-	void CursorTrace(); // Fires a line-trace and detects whatever is beneath the cursor.
+
+	// Fires a line-trace on tick and detects whatever is beneath the cursor.
+	void CursorTrace();
 	
 	void UpdateMouseDirection();
 	void ResetCamera();

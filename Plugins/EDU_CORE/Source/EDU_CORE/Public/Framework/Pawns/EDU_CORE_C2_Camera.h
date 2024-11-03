@@ -50,6 +50,12 @@ protected:
 	virtual void SetPawnDefaults() override;
 
 //------------------------------------------------------------------------------
+// Get/Set
+//------------------------------------------------------------------------------  
+public:
+	FORCEINLINE virtual FVector GetSavedCursorWorldPos() const { return InitialCursorWorldPos; }
+	
+//------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
 protected:
@@ -58,6 +64,25 @@ protected:
 	
 	UPROPERTY()
 	TArray<FGuid> ServerIDArray; // Used for selecting entities on the server.
+
+	//-----------------------------------------------------------------------
+	// Mouse data
+	//-----------------------------------------------------------------------
+
+	// Used for waypoint rotation
+	FVector2D InitialMousePos; 
+	FVector InitialCursorWorldPos; 
+	FRotator CursorRotation;
+
+	//-----------------------------------------------------------------------
+	// Waypoint data
+	//-----------------------------------------------------------------------
+
+	// How many % of the Veiwport Height we need to move to mouse when RBM is pressed to rotate the waypoint.
+	float RotationActivationDistance = 4.f;
+
+	// Should we rotate the waypoint towards the cursor?
+	bool bRotateWaypoint = false;
 	
 //---------------------------------------------------------------------------
 // Input Functionality: Mouse
@@ -71,8 +96,9 @@ protected:
 //---------------------------------------------------------------------------
 // Command logic
 //---------------------------------------------------------------------------
-	
-	virtual void CreateWaypoint(const FVector WorldPosition, const EEDU_CORE_WaypointType WaypointType = EEDU_CORE_WaypointType::NavigateTo, const bool Queue = false);
+
+	// Create a Waypoint with a WorldPosition that AI will look at
+	virtual void CreateWaypoint(const FWaypointParams& WaypointParams);
 	
 //---------------------------------------------------------------------------
 // RPC logic
@@ -82,7 +108,7 @@ protected:
 	UFUNCTION(Server, Reliable)
 	virtual void GetEntitiesOnServer(const TArray<FGuid>& IDArray);
 
-	// Creates a Waypoint with a WorldPosition that AI will look at.
+	// Ask Server to create a Waypoint for us.
 	UFUNCTION(Server, Reliable)
-	void Server_CreateWaypoint(const FVector WorldPosition, const EEDU_CORE_WaypointType WaypointType = EEDU_CORE_WaypointType::NavigateTo, const bool Queue = false);
+	void Server_CreateWaypoint(const FWaypointParams& WaypointParams);
 };
