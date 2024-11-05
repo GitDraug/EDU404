@@ -1,5 +1,9 @@
-﻿#include "UtilityLibrary.h"
+﻿#include "FunctionLibrary/UtilityLibrary.h"
 
+//--------------------------------------------------------------------------------
+//  Rotation Utility
+//  These are all crazy fast, but will not return the shortest route.
+//--------------------------------------------------------------------------------
 
 FRotator UtilityLibrary::GetRotationToTargetPos(const AActor* SourceActor, const FVector& TargetPos)
 { //  FLOW_LOG

@@ -1306,6 +1306,8 @@ void AEDU_CORE_MobileEntity::OnRequestPathAsyncComplete(uint32 RequestID, ENavig
 
 			  We only need the NavPoints in the middle, EI: the third or more.
 			---------------------------------------------------------------------*/
+			NavPointArray.Reset();
+			
 			for (int32 Point = 1; Point < PathPoints.Num() - 1; ++Point)
 			{
 				FVector PointLocation = PathPoints[Point].Location;

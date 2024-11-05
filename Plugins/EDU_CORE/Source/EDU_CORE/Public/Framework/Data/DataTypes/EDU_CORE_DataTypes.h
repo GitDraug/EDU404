@@ -2,9 +2,21 @@
 
 #include "EDU_CORE_DataTypes.generated.h"
 /*--------------------------- Trace Channels -------------------------------------
+  Trace Channels are limited to 20, so I't always best to define them as a MACRO
+  and use the MACRO as a variable.
 --------------------------------------------------------------------------------*/
-#define TRACE_CHANNEL_TERRAIN   ECC_GameTraceChannel1
-#define TRACE_CHANNEL_ENTITIES  ECC_GameTraceChannel2
+
+// Used by Camera, Physics hulls and NavMesh
+#define TRACE_CHANNEL_GROUND		ECC_GameTraceChannel1
+
+// For Dynamic Collision Detection. 
+#define TRACE_CHANNEL_COLLISION		ECC_GameTraceChannel2
+
+// For Tracing Entities with Cursor
+#define TRACE_CHANNEL_ENTITIES		TraceTypeQuery3
+
+// Used by the Field of Vision Boxtrace in the Sight Component
+#define TRACE_CHANNEL_SIGHTCONE		TraceTypeQuery4
 
 /*------------------------- Input: Modifier Keys ---------------------------------
   This Enums keeps track of the active mod key, or active combo of mod keys
