@@ -62,6 +62,13 @@ class EDU_CORE_API AEDU_CORE_SpectatorCamera : public APawn
 	GENERATED_BODY()
 
 //------------------------------------------------------------------------------
+// Get/Set
+//------------------------------------------------------------------------------  
+public:
+	FORCEINLINE virtual FVector GetCursorWorldPos() const { return CursorWorldPos; }
+	void ChangeTeam(EEDU_CORE_Team NewTeam);
+	
+//------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
 public:
@@ -78,7 +85,7 @@ protected:
 	------------------------------------------------------------------------------*/
 	virtual void PawnClientRestart() override;
 	
-	// virtual void BeginPlay() override;
+	// Client Only
 	virtual void Tick(float DeltaTime) override;
 	
 	virtual void UnPossessed() override;
@@ -86,6 +93,7 @@ protected:
 //------------------------------------------------------------------------------
 // Input Setup
 //------------------------------------------------------------------------------
+	
 	// Called upon possession by a PlayerController, to bind functionality to input.
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
@@ -94,12 +102,6 @@ protected:
 
 	// Used to initialize the variables in the DataAsset
 	virtual void SetPawnDefaults();
-
-//------------------------------------------------------------------------------
-// Get/Set
-//------------------------------------------------------------------------------  
-public:
-	FORCEINLINE virtual FVector GetCursorWorldPos() const { return CursorWorldPos; }
 
 //------------------------------------------------------------------------------
 // Public Camera Settings
@@ -137,6 +139,7 @@ public:
 // Components
 //------------------------------------------------------------------------------
 protected:
+	
 	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USceneComponent> CameraAnchor;
 
@@ -287,6 +290,14 @@ protected:
 	-------------------------------------------------------------------------------*/
 public:
 	EEDU_CORE_InputModifierKey ModifierKey;
+
+	//---------------------------------------------------------------------------
+	// Team Stuff
+	//---------------------------------------------------------------------------
+	
+	// Enum to select Team.
+	UPROPERTY(EditAnywhere)
+	EEDU_CORE_Team ActiveTeam = EEDU_CORE_Team::None;
 
 //------------------------------------------------------------------------------
 // Functionality : Selection Controls

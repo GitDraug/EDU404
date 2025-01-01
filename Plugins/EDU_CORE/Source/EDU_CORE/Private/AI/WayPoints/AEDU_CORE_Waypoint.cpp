@@ -18,7 +18,7 @@ AEDU_CORE_Waypoint::AEDU_CORE_Waypoint()
 	
 	// Enable replication
 	SetReplicates(true);
-	NetUpdateFrequency = 10.f;
+	SetNetUpdateFrequency(10);
 
 	// Disable ticking
 	PrimaryActorTick.bCanEverTick = false;

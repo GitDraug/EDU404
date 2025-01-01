@@ -189,8 +189,16 @@ void UOSSV1_MP_Subsystem::FindSessions()
 	SessionSearch->MaxSearchResults = StoredMaxSearchResults;
 	SessionSearch->bIsLanQuery = bOfflineMode;
 	SessionSearch->TimeoutInSeconds = StoredTimeoutInSeconds;
-	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+	SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals); // Updated since 5.5
 
+		/* Ensure Consistency in Session Settings:
+			Set bUsesPresence and bUseLobbiesIfAvailable to the same value in FOnlineSessionSettings.
+			Update session search results to reflect these values before joining a session. For example:
+			SearchResults[ID].Session.SessionSettings.bUsesPresence = true;
+			SearchResults[ID].Session.SessionSettings.bUseLobbiesIfAvailable = true;
+
+			https://chatgpt.com/share/6747754a-40b0-8013-9ac0-2d44c2095c09
+	
 	/*-------------------------------------------------------------------------------------------------------------
 	  We can Search the session now, but note that Online session search is an async process and does not
 	  complete until the OnFindSessionsComplete delegate is called. OnFindSessionsComplete is a bool, and will

@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "EDU_CORE_SelectableEntity.generated.h"
 
+class UEDU_CORE_StatusComponent;
+
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
 --------------------------------------------------------------------------------
@@ -25,6 +27,12 @@ public:
 	AEDU_CORE_SelectableEntity(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	virtual void BeginPlay() override;
+
+//---------------------------------------------------------------
+// Get/Set
+//--------------------------------------------------------------
+	
+	FORCEINLINE TObjectPtr<UEDU_CORE_StatusComponent> GetStatusComponent() const { return StatusComponent; };
 
 //------------------------------------------------------------------------------
 // Functionality
@@ -70,8 +78,18 @@ public:
 	meta = (DisplayName = "Can be selected",
 	ToolTip = "Allows this entity to be detected and selected by the Selection Marquee in the HUD."))
 	bool bCanBeSelected = true;
-	
+
+	UPROPERTY()
 	bool bMouseHighlighted = false;
+
+	UPROPERTY()
 	bool bRectangleHighlighted = false;
+
+	UPROPERTY()
 	bool bSelected = false;
+
+protected:
+	// Pointer to a StatusComponent (if we have one)
+	UPROPERTY()
+	TObjectPtr<UEDU_CORE_StatusComponent> StatusComponent = nullptr;
 };

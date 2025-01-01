@@ -4,21 +4,56 @@
 // This Plugin
 //------------------------------------------------------------------------------
 #include "Framework/Pawns/EDU_CORE_SpectatorCamera.h"
+#include "Framework/Player/EDU_CORE_PlayerController.h"
 
 #include "Framework/Data/DataTypes/EDU_CORE_DataTypes.h"
 #include "Framework/Data/DataAssets/EDU_CORE_CameraPawnInputDataAsset.h"
 #include "Framework/Data/FLOWLOGS/FLOWLOG_PLAYER.h"
 
-#include "Framework/Player/EDU_CORE_PlayerController.h"
-
 #include "UI/HUD/EDU_CORE_HUD.h"
-//------------------------------------------------------------------------------
-// Unreal Modules
-//------------------------------------------------------------------------------
+
+// Unreal Engine
+#include "EngineUtils.h"
 #include "Camera/CameraComponent.h"
 #include "EnhancedInputComponent.h"
-#include "AI/WayPoints/EDU_CORE_Waypoint.h"
 #include "GameFramework/SpringArmComponent.h"
+
+//---------------------------------------------------------------------------
+// Get/Set: Server Only Functions
+//---------------------------------------------------------------------------
+
+void AEDU_CORE_SpectatorCamera::ChangeTeam(EEDU_CORE_Team NewTeam)
+{
+	if (!HasAuthority()) return;
+	
+	ActiveTeam = NewTeam;
+
+	if (ActiveTeam == EEDU_CORE_Team::Spectator)
+	{
+		// Iterate over all Selectable Entities and make the visible
+		for (TActorIterator<AEDU_CORE_SelectableEntity> Entity(GetWorld()); Entity; ++Entity)
+		{
+			if (!Entity->bCanBeSelected)
+			{
+				continue;
+			}
+			Entity->SetActorHiddenInGame(false);
+		}
+	}
+	else
+	{
+		// Iterate over all Selectable Entities and make the invisible,
+		// The ticking StatusComponent in each actor will make team entities visible again for the right team.
+		for (TActorIterator<AEDU_CORE_SelectableEntity> Entity(GetWorld()); Entity; ++Entity)
+		{
+			if (!Entity->bCanBeSelected)
+			{
+				continue;
+			}
+			Entity->SetActorHiddenInGame(true);
+		}
+	}
+}
 
 //------------------------------------------------------------------------------
 // Construction & Init
@@ -1014,6 +1049,7 @@ void AEDU_CORE_SpectatorCamera::CallCtrlGroup(const TArray<AEDU_CORE_SelectableE
 //------------------------------------------------------------------------------
 // Functionality: Input Functions
 //------------------------------------------------------------------------------
+
 bool AEDU_CORE_SpectatorCamera::ShouldReceiveInput() const
 {
 	if(bFreeLook || bMouseDrag || bAutoScroll)

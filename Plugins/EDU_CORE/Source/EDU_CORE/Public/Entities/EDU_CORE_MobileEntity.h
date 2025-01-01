@@ -69,8 +69,10 @@ protected:
 // Aggregated Server tick
 //------------------------------------------------------------------------------
 public:
+	virtual void ServerMobileBatchedCalc();
+	
 	virtual void ServerMobileCalc(float DeltaTime, int32 CurrentBatchIndex);
-	virtual void ServerMobilesExec(float DeltaTime, int32 CurrentBatchIndex);
+	virtual void ServerMobileExec(float DeltaTime, int32 CurrentBatchIndex);
 
 	// Fixed Physics Tick for calculations dependent on the physics thread
 	virtual void AsyncPhysicsTickActor(float DeltaTime, float SimTime) override;
@@ -87,7 +89,7 @@ public:
 	// Waypoint need to update listeners about FormationLocation whenever an entity leaves the formation.
 	virtual void UpdateFormationLocation(const FVector WaypointLocation, FRotator WaypointRotation, FVector WaypointForwardVector, FVector WaypointRightVector, int32 FormationIndex);
 
-	// Waypoint need to update listeners about FormationLocation whenever an entity leaves the formation.
+	// Get Batch Index from GameMode
 	virtual void UpdateBatchIndex(const int32 ServerBatchIndex);
 	
 	// In Case anyone needs our Array.
@@ -104,7 +106,7 @@ protected:
 	UPROPERTY()
 	TArray<TObjectPtr<AEDU_CORE_Waypoint>> WaypointArray;
 
-	// If we save this, weäll need to reset it manually all the time.
+	// If we save this, we'll need to reset it manually all the time.
 	// UPROPERTY()
 	// TObjectPtr<UNavigationPath> NavPath;
 	
@@ -156,23 +158,27 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
 	EMovementType MovementType;
 	
-	// Do wee need a surface to move on?
-	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
-	bool bMovesOnSurface = true;
-	
 	// Can this entity go backwards?.
 	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
 	bool bCanReverse = true;
-	
-	// Can this entity climb surfaces more steep than 40 degrees?
-    UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
-    bool bCanClimb = false;
 
 	// Do we only want to do Yaw turns?
 	// Relevant for hovercrafts, drones, gunships and other flying
 	// objects that always turn horizontal despite their pitch and rotation.
 	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
 	bool bYawTurnsOnly = false;
+
+	// Do wee need a surface to move on?
+	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
+	bool bMovesOnSurface = true;
+
+	// Can this entity climb surfaces more steep than 40 degrees?
+	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
+	bool bCanClimb = false;
+	
+	// What surface does this entity move on?
+	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
+	TEnumAsByte<ECollisionChannel> SurfaceChannel;
 	
 	//------------------------------------------------------------
 	// Movement: Locomotion
@@ -206,6 +212,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Movement | Locomotion", meta = (ClampMin = "0.0", ClampMax = "0.999"))
 	float Inertia = 0.f;
 
+	// Show the Show Velocity Markers for debugging.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement | Locomotion")
+	bool bShowVelocityDebug = false;
+
 	//------------------------------------------------------------
 	// Movement: Rotation
 	//------------------------------------------------------------
@@ -223,7 +233,8 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Movement | Rotation", meta = (ClampMin = "0.0", ClampMax = "180.0"))
 	float ReverseRotationDistance = 100.f;
 
-	// At what distance should we turn rather than reverse?
+	// At what rotational distance should we turn rather than reverse?
+	// Note that Omni-Directional enteties don't reverse, they use AlignDistance instead. 
 	UPROPERTY(EditAnywhere, Category = "Movement | Rotation")
 	float MaxReverseDistance = 300.f;
 
@@ -248,12 +259,10 @@ protected:
 	float CollisionDetectionVolumeRadius  = 50.f;
 
 	// What collision channel should this prediction volume occupy?
+	// <!> This should not be the same as the root component because it
+	//     will cause the prediction volume to collide with it.
 	UPROPERTY(EditAnywhere, Category = "Movement | Collision Detection")
 	TEnumAsByte<ECollisionChannel> CollisionDetectionVolumeChannel;
-	
-	// What surface does this entity move on?
-	UPROPERTY(EditAnywhere, Category = "Movement | Collision Detection")
-	TEnumAsByte<ECollisionChannel> GroundChannel;
 	
 	// We want to trace a bit forward or back depending on which way we are going.
 	// Recommended is half of the actors' length.
@@ -263,6 +272,10 @@ protected:
 	// If the collision detection is oversensitive, or not enough, adjust it here.
 	UPROPERTY(EditAnywhere, Category = "Movement | Collision Detection")
 	float CollisionTraceMult  = 1.f;
+
+	// Show the CollisionDetectionVolume for debugging.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement | Collision Detection")
+	bool bShowCollisionDebug = false;
 
 	//------------------------------------------------------------
 	// Movement: Navigation
@@ -292,13 +305,6 @@ protected:
 
 	// We use a DeltaTimer for functions that need a Realtime Delay.
 	float DeltaTimer;
-
-	//---------------------------------------------
-	// BoxSize
-	//---------------------------------------------
-	FVector Origin;
-	FVector BoxExtent;
-	float DistanceToGround;
 	
 	//---------------------------------------------
 	// Navigation Data
@@ -388,6 +394,10 @@ protected:
 
 	// Predicts future (0.5 second) position.
 	FVector MovementVector;
+
+	// GroundCheck
+	FVector BoxExtent;
+	bool bGroundAlter;
 	
 //------------------------------------------------------------------------------
 // Physics Movement
@@ -396,9 +406,7 @@ protected:
 	void AdjustSpeed();
 
 	// Align the actor to a target position over time.
-	void Align(float DeltaTime);
-	
-	
+	void Align();
 	
 //------------------------------------------------------------------------------
 // AI Functionality
@@ -418,7 +426,7 @@ protected:
 //------------------------------------------------------------------------------
 protected:
 	// See if there is anything under us to drive on.
-	bool OnSurface() const;
+	bool OnSurface();
 	
 	// Check our Alignment to target
 	void CheckAlignment();
@@ -458,7 +466,7 @@ protected:
 	bool PathIsClear();
 
 	// Helper function: Traces in certain direction
-	bool IsPathClear(const FVector& TraceStartLocation, const FVector& TraceEndLocation, FHitResult& HitResult, const FCollisionQueryParams& QueryParams) const;
+	bool IsPathClear(const FVector& TraceStartLocation, const FVector& TraceEndLocation, const FCollisionQueryParams& QueryParams) const;
 
 
 //------------------------------------------------------------------------------
@@ -473,5 +481,4 @@ protected:
 
 	// Execute AsyncPath
 	void OnRequestPathAsyncComplete(uint32 RequestID, ENavigationQueryResult::Type Result, FNavPathSharedPtr Path);
-	
 };

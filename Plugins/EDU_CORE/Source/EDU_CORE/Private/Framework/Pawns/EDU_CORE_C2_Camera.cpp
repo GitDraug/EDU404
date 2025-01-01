@@ -39,31 +39,31 @@ void AEDU_CORE_C2_Camera::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	if(InputData == nullptr) { FLOW_LOG_ERROR("Something is wrong with the InputData, check the Cast.") return; }
 
 	// Make sure the pointer is of the correct type, because why not.
-		if(UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
-		{
-			/*------------------------------------------------------------------------------
-				<!> Input Action Names are in InputData!
-				Here Bind a BP Input Action (with Trigger condition),
-				to C++ class and its C++ function.
+	if(UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
+	{
+		/*------------------------------------------------------------------------------
+			<!> Input Action Names are in InputData!
+			Here Bind a BP Input Action (with Trigger condition),
+			to C++ class and its C++ function.
 
-				ETriggerEvent::Triggered == Fires while the key is down.
-				ETriggerEvent::Started == Fires once only, on pressed.
-				ETriggerEvent::Completed == Fires once only, on released.
-			------------------------------------------------------------------------------*/
+			ETriggerEvent::Triggered == Fires while the key is down.
+			ETriggerEvent::Started == Fires once only, on pressed.
+			ETriggerEvent::Completed == Fires once only, on released.
+		------------------------------------------------------------------------------*/
 			
-			//------------------------------------------------------------------------------
-			// Mouse Input functions; Multifunctional, so best to use simple names.
-			//------------------------------------------------------------------------------
+		//------------------------------------------------------------------------------
+		// Mouse Input functions; Multifunctional, so best to use simple names.
+		//------------------------------------------------------------------------------
 
-			//------------------------------------------------------------------------------
-			// Modifier Keys : 
-			//------------------------------------------------------------------------------
+		//------------------------------------------------------------------------------
+		// Modifier Keys : 
+		//------------------------------------------------------------------------------
 
-			//---------------------------------------------------------------------------
-			// CTRL Group Assignment
-			//---------------------------------------------------------------------------
+		//---------------------------------------------------------------------------
+		// CTRL Group Assignment
+		//---------------------------------------------------------------------------
 
-		}
+	}
 }
 
 void AEDU_CORE_C2_Camera::SetPlayerInputMode()
@@ -88,8 +88,16 @@ void AEDU_CORE_C2_Camera::BeginPlay()
 	{
 		if(AEDU_CORE_GameMode* GameMode = Cast<AEDU_CORE_GameMode>(GetWorld()->GetAuthGameMode()))
 		{
+			// TODO: This is used for debugging!
+			SetTeam(EEDU_CORE_Team::Team_1);
 			GameMode->AddActorToTeamArray(this);
 		}
+	}
+	else
+	{
+		// TODO: This is used for debugging!
+		SetTeam(EEDU_CORE_Team::Team_2);
+		FLOW_LOG_WARNING("SetTeam(EEDU_CORE_Team::Team_1) for debugging!")
 	}
 }
 
@@ -98,6 +106,9 @@ void AEDU_CORE_C2_Camera::Tick(float DeltaTime)
 { FLOW_LOG_TICK
 	Super::Tick(DeltaTime);
 
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan,
+		FString::Printf(TEXT("ActiveTeam: %d"), ActiveTeam));
+	
 	if (bMouse_2 && CameraSelectionArray.Num() > 0)
 	{
 		int32 ViewportWidth, ViewportHeight;

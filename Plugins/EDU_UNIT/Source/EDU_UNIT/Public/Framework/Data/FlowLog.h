@@ -22,7 +22,7 @@ inline DEFINE_LOG_CATEGORY(FlowLog_UNIT_TICK);
 //-------------------------------------------------------
 // Flow Log MACRO, only executed in debug mode.
 //-------------------------------------------------------
-#if UE_BUILD_DEVELOPMENT
+// #if UE_BUILD_DEVELOPMENT
 
   // Normal program flow, no message
     #define FLOW_LOG UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("%s::%hs"), *GetClass()->GetName(), __FUNCTION__); // Custom Log category, so we can monitor program flow in the console. The Macro makes the source less cluttered.
@@ -54,6 +54,7 @@ inline DEFINE_LOG_CATEGORY(FlowLog_UNIT_TICK);
 //-------------------------------------------------------
 #define FLOW_LOG_IF(PARAM, ACTION) if(PARAM){ ACTION; }
 
+/*
 #else // These are all undefined in a release build, essentially non-existent.
   #define FLOW_LOG
 
@@ -72,4 +73,4 @@ inline DEFINE_LOG_CATEGORY(FlowLog_UNIT_TICK);
   #define FLOW_ONSCREEN_TOSTRING
 
   #define FLOW_LOG_IF
-#endif
+*/

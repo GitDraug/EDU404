@@ -20,6 +20,15 @@ UCLASS()
 class EDU_CORE_API AEDU_CORE_C2_Camera : public AEDU_CORE_SpectatorCamera
 {
 	GENERATED_BODY()
+
+//------------------------------------------------------------------------------
+// Get/Set
+//------------------------------------------------------------------------------  
+public:
+	FORCEINLINE virtual FVector GetSavedCursorWorldPos() const { return InitialCursorWorldPos; }
+	FORCEINLINE EEDU_CORE_Team GetTeam() const { return ActiveTeam; }
+
+	void SetTeam(EEDU_CORE_Team TeamIndex ) { ActiveTeam = TeamIndex; }
 	
 //------------------------------------------------------------------------------
 // Construction & Init
@@ -33,7 +42,7 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	// Called every frame
+	// Called every frame (Client Only)
 	virtual void Tick(float DeltaTime) override;
 
 //------------------------------------------------------------------------------
@@ -48,22 +57,11 @@ protected:
 
 	// Used to initialize the variables in the DataAsset
 	virtual void SetPawnDefaults() override;
-
-//------------------------------------------------------------------------------
-// Get/Set
-//------------------------------------------------------------------------------  
-public:
-	FORCEINLINE virtual FVector GetSavedCursorWorldPos() const { return InitialCursorWorldPos; }
 	
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
 protected:
-	// Enum to easily select Team.
-	EEDU_CORE_Team Team;
-	
-	UPROPERTY()
-	TArray<FGuid> ServerIDArray; // Used for selecting entities on the server.
 
 	//-----------------------------------------------------------------------
 	// Mouse data
@@ -83,6 +81,14 @@ protected:
 
 	// Should we rotate the waypoint towards the cursor?
 	bool bRotateWaypoint = false;
+
+
+	//-----------------------------------------------------------------------
+	// Team
+	//-----------------------------------------------------------------------
+	
+	UPROPERTY()
+	TArray<FGuid> ServerIDArray; // Used for finding entities on the server.
 	
 //---------------------------------------------------------------------------
 // Input Functionality: Mouse

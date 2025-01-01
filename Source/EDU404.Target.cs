@@ -9,7 +9,7 @@ public class EDU404Target : TargetRules
 	{
 		Type = TargetType.Game;
 		DefaultBuildSettings = BuildSettingsVersion.V5;
-		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_4;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_5; // Make sure this is the right version when switching engine.
 		ExtraModuleNames.Add("EDU404");
 	}
 }

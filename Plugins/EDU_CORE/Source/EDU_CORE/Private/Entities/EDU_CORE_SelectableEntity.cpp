@@ -1,9 +1,14 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-
+// THIS
 #include "Entities/EDU_CORE_SelectableEntity.h"
+
+// CORE
 #include "Framework/Data/FLOWLOGS/FLOWLOG_ENTITIES.h"
 #include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
+
+// UE
+#include "Entities/Components/EDU_CORE_StatusComponent.h"
 #include "Net/UnrealNetwork.h"
 
 //------------------------------------------------------------------------------
@@ -18,6 +23,9 @@ AEDU_CORE_SelectableEntity::AEDU_CORE_SelectableEntity(const FObjectInitializer&
 void AEDU_CORE_SelectableEntity::BeginPlay()
 { FLOW_LOG
 	Super::BeginPlay();
+
+	// Initiate pointer to StatusComponent
+	StatusComponent = FindComponentByClass<UEDU_CORE_StatusComponent>();
 	
 	// Create, save and Replicate the Unique ID of this entity.
 	if(HasAuthority())
@@ -68,7 +76,6 @@ void AEDU_CORE_SelectableEntity::GetLifetimeReplicatedProps(TArray<FLifetimeProp
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ThisClass, ServerEntityID);
 }
-
 
 //------------------------------------------------------------------------------
 // Functionality

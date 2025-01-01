@@ -89,7 +89,7 @@ void AEDU_CORE_PhysicsEntity::BeginPlay()
 		PhysicsComponent->SetSimulatePhysics(true);
 		
 		// Stop the server from sending updates and force resets on the client.
-		NetUpdateFrequency = 0;
+		SetNetUpdateFrequency(0);
 	}
 	
 	//------------------------------------------------------------------------------
@@ -99,8 +99,8 @@ void AEDU_CORE_PhysicsEntity::BeginPlay()
 	{
 		PhysicsComponent->SetSimulatePhysics(true);
 
-		// We need to at least send updates 4 times a second.
-		if(NetUpdateFrequency < 4) NetUpdateFrequency = 4;
+		// We need to at least send updates 20 times a second.
+		if(GetNetUpdateFrequency() < 20) SetNetUpdateFrequency(20);
 		
 		if (AEDU_CORE_GameMode* GameMode = Cast<AEDU_CORE_GameMode>(GetWorld()->GetAuthGameMode()))
 		{

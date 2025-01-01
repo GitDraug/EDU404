@@ -12,11 +12,17 @@
 // For Dynamic Collision Detection. 
 #define TRACE_CHANNEL_COLLISION		ECC_GameTraceChannel2
 
-// For Tracing Entities with Cursor
-#define TRACE_CHANNEL_ENTITIES		TraceTypeQuery3
+// Used by VisualConfirmation in the Sight Component
+#define TRACE_CHANNEL_EYESIGHT		ECC_GameTraceChannel3
 
 // Used by the Field of Vision Boxtrace in the Sight Component
-#define TRACE_CHANNEL_SIGHTCONE		TraceTypeQuery4
+#define TRACE_CHANNEL_FOVBOX		TraceTypeQuery2
+
+// For Tracing Entities with Cursor
+#define TRACE_CHANNEL_ENTITIES		TraceTypeQuery1
+
+// Used by the Field of Vision Boxtrace in the Sight Component
+#define TRACE_CHANNEL_FOVBOX		TraceTypeQuery2
 
 /*------------------------- Input: Modifier Keys ---------------------------------
   This Enums keeps track of the active mod key, or active combo of mod keys
@@ -54,11 +60,26 @@ enum class EEDU_CORE_InputModifierKey : uint8
 };
 
 /*------------------------------- Teams ------------------------------------------
+  This enum keeps track of teams. The Enum::Max works well in for loops.
+
+  Example:
+	// Cast 'Team' to uint8 if it's an enum class
+	const uint8 MyTeam = static_cast<uint8>(ActiveTeam);
+	constexpr uint8 Max = static_cast<uint8>(EEDU_CORE_Team::Max);
+
+	// 0 is neutral
+	for (uint8 Enum = 1; Enum < Max; ++Enum)
+	{
+		if (Enum != MyTeam) // Exclude the specified team
+		{
+			HostileTeams.AddUnique(Enum);
+		}
+	}
 --------------------------------------------------------------------------------*/
-UENUM()
+UENUM(BlueprintType)
 enum class EEDU_CORE_Team : uint8
 {
-	None,
+	None		UMETA(DisplayName = "No Team", ToolTip = "No specific selection, spectator, all knowing"),
 	Team_1,
 	Team_2,
 	Team_3,
@@ -69,6 +90,8 @@ enum class EEDU_CORE_Team : uint8
 	Team_8,
 	Team_9,
 	Team_10,
+	Spectator,
+	Max			UMETA(Hidden),
 };
 
 
