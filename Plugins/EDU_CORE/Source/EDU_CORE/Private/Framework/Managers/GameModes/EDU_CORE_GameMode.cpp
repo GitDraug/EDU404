@@ -10,8 +10,11 @@
 #include "Entities/EDU_CORE_PhysicsEntity.h"
 #include "Entities/EDU_CORE_MobileEntity.h"
 
-#include "Entities/Components/EDU_CORE_SenseComponent.h"
-#include "Entities/Components/EDU_CORE_StatusComponent.h"
+#include "Entities/Components/SenseComponent.h"
+#include "Entities/Components/StatusComponent.h"
+#include "Entities/Components/TurretWeaponComponent.h"
+#include "Entities/Components/FixedWeaponComponent.h"
+#include "Entities/Components/EngagementComponent.h"
 
 #include "Framework/Data/FLOWLOGS/FLOWLOG_MANAGERS.h"
 #include "Framework/Pawns/EDU_CORE_C2_Camera.h"
@@ -29,8 +32,59 @@ AEDU_CORE_GameMode::AEDU_CORE_GameMode(const FObjectInitializer& ObjectInitializ
 	BusyWaypointPool.Reserve(100);
 }
 
+void AEDU_CORE_GameMode::InitiateArrays()
+{
+
+	VisibilityStruct.Team_0_VisibleActors.Reserve(900);
+	VisibilityStruct.Team_1_VisibleActors.Reserve(900);
+	VisibilityStruct.Team_2_VisibleActors.Reserve(900);
+	VisibilityStruct.Team_3_VisibleActors.Reserve(900);
+	VisibilityStruct.Team_4_VisibleActors.Reserve(900);
+	VisibilityStruct.Team_5_VisibleActors.Reserve(900);
+	VisibilityStruct.Team_6_VisibleActors.Reserve(900);
+	VisibilityStruct.Team_7_VisibleActors.Reserve(900);
+	VisibilityStruct.Team_8_VisibleActors.Reserve(900);
+	VisibilityStruct.Team_9_VisibleActors.Reserve(900);
+	VisibilityStruct.Team_10_VisibleActors.Reserve(900);
+
+	VisibilityStruct.Team_0_HiddenActors.Reserve(900);
+	VisibilityStruct.Team_1_HiddenActors.Reserve(900);
+	VisibilityStruct.Team_2_HiddenActors.Reserve(900);
+	VisibilityStruct.Team_3_HiddenActors.Reserve(900);
+	VisibilityStruct.Team_4_HiddenActors.Reserve(900);
+	VisibilityStruct.Team_5_HiddenActors.Reserve(900);
+	VisibilityStruct.Team_6_HiddenActors.Reserve(900);
+	VisibilityStruct.Team_7_HiddenActors.Reserve(900);
+	VisibilityStruct.Team_8_HiddenActors.Reserve(900);
+	VisibilityStruct.Team_9_HiddenActors.Reserve(900);
+	VisibilityStruct.Team_10_HiddenActors.Reserve(900);
+
+	AbstractEntityArray.Reserve(500);
+	PhysicsEntityArray.Reserve(1000);
+	MobileEntityArray.Reserve(1000);
+	SightComponentArray.Reserve(1000);
+	StatusComponentArray.Reserve(1000);
+	TurretComponentArray.Reserve(1000);
+	EngagementComponentArray.Reserve(1000);
+
+	Team_0_Array.Reserve(100);
+	Team_1_Array.Reserve(100);
+	Team_2_Array.Reserve(100);
+	Team_3_Array.Reserve(100);
+	Team_4_Array.Reserve(100);
+	Team_5_Array.Reserve(100);
+	Team_6_Array.Reserve(100);
+	Team_7_Array.Reserve(100);
+	Team_8_Array.Reserve(100);
+	Team_9_Array.Reserve(100);
+	Team_10_Array.Reserve(100);
+	
+	
+}
+
 void AEDU_CORE_GameMode::Tick(float DeltaTime)
 { //FLOW_LOG
+	
 	Super::Tick(DeltaTime);
 	//------------------------------------------------------------------------------
 	// Debug
@@ -39,6 +93,7 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 	if (DeltaTime < 0.016f)			DeltaTimeDisplayColor = FColor::Green;
 	else if (DeltaTime < 0.02f)		DeltaTimeDisplayColor = FColor::Yellow;
 	else 							DeltaTimeDisplayColor = FColor::Red;
+	
 	// Add an on-screen debug message with the specified DisplayColor and DeltaTime information
 	GEngine->AddOnScreenDebugMessage(12, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
 	FString::Printf(TEXT("FPS: %f"), 1.f/DeltaTime));
@@ -47,7 +102,7 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 	FPSTotal += 1.f/DeltaTime;
 	
 	GEngine->AddOnScreenDebugMessage(13, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
-	FString::Printf(TEXT("FPS: %f"), FPSTotal / FPSCounter));
+	FString::Printf(TEXT("AVG FPS: %f"), FPSTotal / FPSCounter));
 	
 	if(FPSCounter > 500)
 	{
@@ -62,21 +117,34 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 	//		the clock. In turn, simulation never goes above 50FPS.
 	//------------------------------------------------------------------------------
 
+	constexpr float AsyncPhysicsFPS = 50.f;
 	constexpr float AsyncPhysicsTick = 0.02f;
-	CurrentTime += FMath::Min(DeltaTime, AsyncPhysicsTick) / AsyncPhysicsTick / 50.f;
+	AccumulatedAsyncDeltatime += FMath::Min(DeltaTime, AsyncPhysicsTick) / AsyncPhysicsTick;
+	
+	AsyncDeltaTime = AccumulatedAsyncDeltatime - LastAccumulatedAsyncTicks; // This should be passed to ticks
+	LastAccumulatedAsyncTicks = AccumulatedAsyncDeltatime;
+	
+	AsyncedClock = AccumulatedAsyncDeltatime / AsyncPhysicsFPS;
+	LastAsyncedClock = AsyncedClock;
+
+	GEngine->AddOnScreenDebugMessage(19, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
+	FString::Printf(TEXT("AsyncDeltaTime: %f"), AsyncDeltaTime));
 	
 	// GEngine->AddOnScreenDebugMessage(20, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
-	// FString::Printf(TEXT("Real Clock: %f"), GetWorld()->GetTimeSeconds()));
-	// GEngine->AddOnScreenDebugMessage(21, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
-	// FString::Printf(TEXT("Sycned Clock: %f"), CurrentTime ));
+	// FString::Printf(TEXT("Accumulated AsyncDeltatime: %f"), AccumulatedAsyncDeltatime));
+	
+	GEngine->AddOnScreenDebugMessage(21, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
+	FString::Printf(TEXT("Real Clock: %f"), GetWorld()->GetTimeSeconds()));
+	
+	GEngine->AddOnScreenDebugMessage(22, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
+	FString::Printf(TEXT("Asynced Clock: %f"), AsyncedClock ));
 
-	// GEngine->AddOnScreenDebugMessage(22, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
-	// FString::Printf(TEXT("Sycned Clock / Second: %f"), GetWorld()->GetTimeSeconds() / CurrentTime));
+	// GEngine->AddOnScreenDebugMessage(23, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
+	// FString::Printf(TEXT("Asynced Seconds / Real Second: %f"), GetWorld()->GetTimeSeconds() / AsyncedClock));
 	
 	//------------------------------------------------------------------------------
 	// Server-Side Aggregated Tick > AbstractEntityArray // Not in use.
 	//------------------------------------------------------------------------------
-
 	
 	//------------------------------------------------------------------------------
 	// Server-Side Aggregated Tick > PhysicsEntityArray
@@ -120,20 +188,20 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 			}
 		}
 
-		// If more than 1 second has passed since the last cycle, start a new batch cycle
-		if (CurrentTime - LastMobileBatchTime >= 0.75f)
+		// If more than X.X second has passed since the last cycle, start a new batch cycle
+		if (AsyncedClock - LastMobilEntityBatchTime >= 0.75f)
 		{
-			if (MobileBatchIndex == 0)
+			if (MobileEntityBatchIndex == 0)
 			{
-				LastMobileBatchTime = CurrentTime;
+				LastMobilEntityBatchTime = AsyncedClock;
 			}
 			constexpr int32 BatchSize = 40;
 	    		
 			// Calculate the end index for the current batch
-			const int32 ThisTickEndIndex = FMath::Min(MobileBatchIndex + BatchSize, MobileEntityArray.Num());
+			const int32 ThisTickEndIndex = FMath::Min(MobileEntityBatchIndex + BatchSize, MobileEntityArray.Num());
 		        
 			//* Parallel batch processing of ServerMobileBatchedCalc
-			ParallelFor(ThisTickEndIndex - MobileBatchIndex, [this, StartIndex = MobileBatchIndex](int32 LocalIndex)
+			ParallelFor(ThisTickEndIndex - MobileEntityBatchIndex, [this, StartIndex = MobileEntityBatchIndex](int32 LocalIndex)
 			{
 				int32 EntityIndex = StartIndex + LocalIndex;
 				if (AEDU_CORE_MobileEntity* MobileEntity = MobileEntityArray[EntityIndex])
@@ -152,13 +220,13 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 			}//*/
 
 			// Update the batch index and last processing time to begin a new cycle
-			MobileBatchIndex = ThisTickEndIndex;
+			MobileEntityBatchIndex = ThisTickEndIndex;
 		}
 
 		// If we've completed processing the entire array, reset the batch index to 0
-		if (MobileBatchIndex >= MobileEntityArray.Num())
+		if (MobileEntityBatchIndex >= MobileEntityArray.Num())
 		{
-			MobileBatchIndex = 0;
+			MobileEntityBatchIndex = 0;
 		}
 
 	//------------------------------------------------------------------------------
@@ -167,57 +235,54 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 		
 		// Define batch size
 		//  GEngine->AddOnScreenDebugMessage(14, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
-		// 								 FString::Printf(TEXT("LastStatusTime: %f"), LastStatusTime));
+		// 								 FString::Printf(TEXT("LastStatusComponentTime: %f"), LastStatusComponentTime));
 
 		// Define batch size
 		//  GEngine->AddOnScreenDebugMessage(13, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
 		// 								 FString::Printf(TEXT("LastSightTime: %f"), LastSightTime));
 		
 		// If more than 1 second has passed since the last cycle, start a new batch cycle
-		if (CurrentTime - LastSightTime >= 1.0f)
+		if(AsyncedClock - LastSightComponentTime >= 1.f)
 		{
-			if (SightBatchIndex == 0)
+			if (SightComponentBatchIndex == 0)
 			{
-				LastSightTime = CurrentTime;
+				LastSightComponentTime = AsyncedClock;
 			}
 			constexpr int32 BatchSize = 20;
 	    		
 			// Calculate the end index for the current batch
-			const int32 ThisTickEndIndex = FMath::Min(SightBatchIndex + BatchSize, SightComponentArray.Num());
+			const int32 ThisTickEndIndex = FMath::Min(SightComponentBatchIndex + BatchSize, SightComponentArray.Num());
 		        
 			// Parallel batch processing of ServerSightCalc
-			ParallelFor(ThisTickEndIndex - SightBatchIndex, [this, DeltaTime, StartIndex = SightBatchIndex](int32 LocalIndex)
+			ParallelFor(ThisTickEndIndex - SightComponentBatchIndex, [this, DeltaTime, StartIndex = SightComponentBatchIndex](int32 LocalIndex)
 			{
 				int32 ComponentIndex = StartIndex + LocalIndex;
-				//if (SightComponentArray.IsValidIndex(ComponentIndex)) // Ensure index validity
-		            //{
-		                if (UEDU_CORE_SenseComponent* Component = SightComponentArray[ComponentIndex])
-		                {
-		                    Component->ServerSightCalc(DeltaTime);
-		                }
-		           // }
+				if (SightComponentArray.IsValidIndex(ComponentIndex)) // Ensure index validity
+		        {
+					if (USenseComponent* Component = SightComponentArray[ComponentIndex])
+					{
+						Component->ServerSightCalc(DeltaTime);
+					}
+				}
 			});
 
 			// Sequential batch processing of ServerSightExec
-			for (int32 ComponentIndex = SightBatchIndex; ComponentIndex < ThisTickEndIndex; ++ComponentIndex)
+			for (int32 ComponentIndex = SightComponentBatchIndex; ComponentIndex < ThisTickEndIndex; ++ComponentIndex)
 			{
-				//if (SightComponentArray.IsValidIndex(ComponentIndex)) // Ensure index validity
-				//{
-					if (UEDU_CORE_SenseComponent* Component = SightComponentArray[ComponentIndex])
-		                {
-		                    Component->ServerSightExec(DeltaTime);
-		                }
-				//}
+				if (USenseComponent* Component = SightComponentArray[ComponentIndex])
+				{
+	                    Component->ServerSightExec(DeltaTime);
+				}
 			}
 
 			// Update the batch index and last processing time to begin a new cycle
-			SightBatchIndex = ThisTickEndIndex;
+			SightComponentBatchIndex = ThisTickEndIndex;
 		}
 
 		// If we've completed processing the entire array, reset the batch index to 0
-		if (SightBatchIndex >= SightComponentArray.Num())
+		if(SightComponentBatchIndex >= SightComponentArray.Num())
 		{
-		    SightBatchIndex = 0;
+		    SightComponentBatchIndex = 0;
 		}
 		
 
@@ -226,27 +291,27 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 	//------------------------------------------------------------------------------
 	
 		// If more than 1 second has passed since the last cycle, start a new batch cycle
-		if (CurrentTime - LastStatusTime >= 1.0f)
+		if(AsyncedClock - LastStatusComponentTime >= 1.0f)
 		    {
 	    		//  GEngine->AddOnScreenDebugMessage(13, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
 				// 								 FString::Printf(TEXT("Tracing!")));
 	    		
-	    		if (StatusBatchIndex == 0)
+	    		if (StatusComponentBatchIndex == 0)
 	    		{
-	    			LastStatusTime = CurrentTime;
+	    			LastStatusComponentTime = AsyncedClock;
 	    		}
 			    constexpr int32 BatchSize = 20;
 	    		
 			    // Calculate the end index for the current batch
-		        const int32 ThisTickEndIndex = FMath::Min(StatusBatchIndex + BatchSize, StatusComponentArray.Num());
+		        const int32 ThisTickEndIndex = FMath::Min(StatusComponentBatchIndex + BatchSize, StatusComponentArray.Num());
 		        
 		        // Parallel batch processing of ServerStatusCalc
-		        ParallelFor(ThisTickEndIndex - StatusBatchIndex, [this, DeltaTime, StartIndex = StatusBatchIndex](int32 LocalIndex)
+		        ParallelFor(ThisTickEndIndex - StatusComponentBatchIndex, [this, DeltaTime, StartIndex = StatusComponentBatchIndex](int32 LocalIndex)
 		        {
 		            int32 ComponentIndex = StartIndex + LocalIndex;
 		            //if (StatusComponentArray.IsValidIndex(ComponentIndex)) // Ensure index validity
 		            //{
-		                if (UEDU_CORE_StatusComponent* Component = StatusComponentArray[ComponentIndex])
+		                if (UStatusComponent* Component = StatusComponentArray[ComponentIndex])
 		                {
 		                    Component->ServerStatusCalc(DeltaTime);
 		                }
@@ -254,11 +319,11 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 		        });
 
 		        // Sequential batch processing of ServerStatusExec
-		        for (int32 ComponentIndex = StatusBatchIndex; ComponentIndex < ThisTickEndIndex; ++ComponentIndex)
+		        for (int32 ComponentIndex = StatusComponentBatchIndex; ComponentIndex < ThisTickEndIndex; ++ComponentIndex)
 		        {
 		          //  if (StatusComponentArray.IsValidIndex(ComponentIndex)) // Ensure index validity
 		           // {
-		                if (UEDU_CORE_StatusComponent* Component = StatusComponentArray[ComponentIndex])
+		                if (UStatusComponent* Component = StatusComponentArray[ComponentIndex])
 		                {
 		                    Component->ServerStatusExec(DeltaTime);
 		                }
@@ -266,30 +331,158 @@ void AEDU_CORE_GameMode::Tick(float DeltaTime)
 		        }
 
 		        // Update the batch index and last processing time to begin a new cycle
-		        StatusBatchIndex = ThisTickEndIndex;
+		        StatusComponentBatchIndex = ThisTickEndIndex;
 		}
 
 		// If we've completed processing the entire array, reset the batch index to 0
-		if (StatusBatchIndex >= StatusComponentArray.Num())
+		if(StatusComponentBatchIndex >= StatusComponentArray.Num())
 		{
-		    StatusBatchIndex = 0;
+		    StatusComponentBatchIndex = 0;
+		}
+
+	//------------------------------------------------------------------------------
+	// Server-Side Aggregated Tick > EngagementComponentArray
+	//------------------------------------------------------------------------------
+	
+		// If more than 1 second has passed since the last cycle, start a new batch cycle
+		if(AsyncedClock - LastEngagementComponentTime >= 1.0f)
+		    {
+	    		//  GEngine->AddOnScreenDebugMessage(13, GetWorld()->DeltaTimeSeconds, DeltaTimeDisplayColor, 
+				// 								 FString::Printf(TEXT("Tracing!")));
+	    		
+	    		if (EngagementComponentBatchIndex == 0)
+	    		{
+	    			LastEngagementComponentTime = AsyncedClock;
+	    		}
+			    constexpr int32 BatchSize = 20;
+	    		
+			    // Calculate the end index for the current batch
+		        const int32 ThisTickEndIndex = FMath::Min(EngagementComponentBatchIndex + BatchSize, EngagementComponentArray.Num());
+		        
+		        // Parallel batch processing of ServerEngagementCalc
+		        ParallelFor(ThisTickEndIndex - EngagementComponentBatchIndex, [this, DeltaTime, StartIndex = EngagementComponentBatchIndex](int32 LocalIndex)
+		        {
+		            int32 ComponentIndex = StartIndex + LocalIndex;
+		            //if (EngagementComponentArray.IsValidIndex(ComponentIndex)) // Ensure index validity
+		            //{
+		                if (UEngagementComponent* Component = EngagementComponentArray[ComponentIndex])
+		                {
+		                    Component->ServerEngagementComponentCalc(DeltaTime);
+		                }
+		           // }
+		        });
+
+		        // Sequential batch processing of ServerEngagementExec
+		        for (int32 ComponentIndex = EngagementComponentBatchIndex; ComponentIndex < ThisTickEndIndex; ++ComponentIndex)
+		        {
+		          //  if (EngagementComponentArray.IsValidIndex(ComponentIndex)) // Ensure index validity
+		           // {
+		                if (UEngagementComponent* Component = EngagementComponentArray[ComponentIndex])
+		                {
+		                    Component->ServerEngagementComponentExec(DeltaTime);
+		                }
+		          //  }
+		        }
+
+		        // Update the batch index and last processing time to begin a new cycle
+		        EngagementComponentBatchIndex = ThisTickEndIndex;
+		}
+
+		// If we've completed processing the entire array, reset the batch index to 0
+		if(EngagementComponentBatchIndex >= EngagementComponentArray.Num())
+		{
+		    EngagementComponentBatchIndex = 0;
 		}
 	
 	//------------------------------------------------------------------------------
-	// Reset batch Index
+	// Server-Side Aggregated Tick > TurretComponentArray
+	//------------------------------------------------------------------------------
+	
+	// Sequential execution of ServerMobilesExec on each entity
+	for(UTurretWeaponComponent* TurretComponent : TurretComponentArray)
+	{
+		if (TurretComponent)
+		{
+			TurretComponent->ServerTurretExec(AsyncDeltaTime);
+		}
+	}
+	
+	ParallelFor(TurretComponentArray.Num(), [this, DeltaTime](int32 Index)
+	{
+		if(UTurretWeaponComponent* TurretComponent = TurretComponentArray[Index])  // Checking for validity only once
+		{
+			TurretComponent->ServerTurretCalc(AsyncDeltaTime);
+		}
+	});
+	
+	// If more than 0.02 second has passed since the last cycle, start a new batch cycle
+	if (AsyncedClock - LastTurretComponentTime >= 0.02f)
+	{
+		LastTurretComponentTime = AsyncedClock;
+
+		// Sequential execution of ServerMobilesExec on each entity
+		for(UTurretWeaponComponent* TurretComponent : TurretComponentArray)
+		{
+			if (TurretComponent)
+			{
+				TurretComponent->ServerTimeGatedTurretExec(AsyncDeltaTime);
+			}
+		}
+	}
+	
+	//------------------------------------------------------------------------------
+	// Server-Side Aggregated Tick >FixedWeaponComponentArray
+	//------------------------------------------------------------------------------
+	
+	// Sequential execution of ServerMobilesExec on each entity
+	for(UFixedWeaponComponent* FixedWeaponComponent : FixedWeaponComponentArray)
+	{
+		if (FixedWeaponComponent)
+		{
+			FixedWeaponComponent->ServerFixedWeaponExec(AsyncDeltaTime);
+		}
+	}
+	
+	ParallelFor(FixedWeaponComponentArray.Num(), [this, DeltaTime](int32 Index)
+	{
+		if(UFixedWeaponComponent* FixedWeaponComponent = FixedWeaponComponentArray[Index])  // Checking for validity only once
+		{
+			FixedWeaponComponent->ServerFixedWeaponCalc(AsyncDeltaTime);
+		}
+	});
+	
+	// If more than 0.02 second has passed since the last cycle, start a new batch cycle
+	if (AsyncedClock - LastFixedWeaponComponentTime >= 0.02f)
+	{
+		LastFixedWeaponComponentTime = AsyncedClock;
+
+		// Sequential execution of ServerMobilesExec on each entity
+		for(UFixedWeaponComponent* FixedWeaponComponent : FixedWeaponComponentArray)
+		{
+			if (FixedWeaponComponent)
+			{
+				FixedWeaponComponent->ServerTimeGatedFixedWeaponExec(AsyncDeltaTime);
+			}
+		}
+	}
+	
+	//------------------------------------------------------------------------------
+	// Reset all batch Indexes
 	//------------------------------------------------------------------------------
 
-		// Original code
-		// CurrentBatchIndex = (CurrentBatchIndex < 10) ? (CurrentBatchIndex + 1) : 1;
+	// Original code
+	// CurrentBatchIndex = (CurrentBatchIndex < 10) ? (CurrentBatchIndex + 1) : 1;
 
-		// Refactored version (faster)
-		CurrentBatchIndex_10 = (CurrentBatchIndex_10 % 10) + 1;
-		CurrentBatchIndex_100 = (CurrentBatchIndex_100 % 100) + 1;
+	// Refactored version (faster)
+	CurrentBatchIndex_10 = (CurrentBatchIndex_10 % 10) + 1;
+	CurrentBatchIndex_100 = (CurrentBatchIndex_100 % 100) + 1;
 }
 
 void AEDU_CORE_GameMode::BeginPlay()
 {
 	Super::BeginPlay();
+
+	InitiateArrays();
 }
 
 //------------------------------------------------------------------------------
@@ -342,7 +535,7 @@ void AEDU_CORE_GameMode::AddToMobileEntityArray(AEDU_CORE_MobileEntity* MobileEn
 	}
 }
 
-void AEDU_CORE_GameMode::AddToSightComponentArray(UEDU_CORE_SenseComponent* SightComponent)
+void AEDU_CORE_GameMode::AddToSightComponentArray(USenseComponent* SightComponent)
 { FLOW_LOG
 	if(SightComponent)  // Check if the entity is valid
 	{
@@ -367,11 +560,35 @@ void AEDU_CORE_GameMode::AddToSightComponentArray(UEDU_CORE_SenseComponent* Sigh
 	}
 }
 
-void AEDU_CORE_GameMode::AddToStatusComponentArray(UEDU_CORE_StatusComponent* StatusComponent)
+void AEDU_CORE_GameMode::AddToStatusComponentArray(UStatusComponent* StatusComponent)
 { FLOW_LOG
 	if(StatusComponent)  // Check if the entity is valid
 	{
 		StatusComponentArray.AddUnique(StatusComponent);
+	}
+}
+
+void AEDU_CORE_GameMode::AddToEngagementComponentArray(UEngagementComponent* EngagementComponent)
+{ FLOW_LOG
+	if(EngagementComponent)  // Check if the entity is valid
+	{
+		EngagementComponentArray.AddUnique(EngagementComponent);
+	}
+}
+
+void AEDU_CORE_GameMode::AddToTurretComponentArray(UTurretWeaponComponent* TurretComponent)
+{ FLOW_LOG
+	if(TurretComponent)  // Check if the entity is valid
+	{
+		TurretComponentArray.AddUnique(TurretComponent);
+	}
+}
+
+void AEDU_CORE_GameMode::AddToFixedWeaponComponentArray(UFixedWeaponComponent* FixedWeaponComponent)
+{ FLOW_LOG
+	if(FixedWeaponComponent)  // Check if the entity is valid
+	{
+		FixedWeaponComponentArray.AddUnique(FixedWeaponComponent);
 	}
 }
 
@@ -430,21 +647,23 @@ void AEDU_CORE_GameMode::RemoveActorFromTeamArray(AActor* Actor, EEDU_CORE_Team 
 
 void AEDU_CORE_GameMode::AddActorToTeamVisibleActorsArray(AActor* Actor, EEDU_CORE_Team TeamArray)
 { FLOW_LOG
+	if (!HasAuthority()) return;
+	
 	if (Actor)
 	{
 		switch(TeamArray)
 		{
-			case EEDU_CORE_Team::None:		VisibilityStruct.Team_0_VisibleActors.AddUnique(Actor);	break;
-			case EEDU_CORE_Team::Team_1:	VisibilityStruct.Team_1_VisibleActors.AddUnique(Actor);	break;
-			case EEDU_CORE_Team::Team_2:	VisibilityStruct.Team_2_VisibleActors.AddUnique(Actor);	break;
-			case EEDU_CORE_Team::Team_3:	VisibilityStruct.Team_3_VisibleActors.AddUnique(Actor);	break;
-			case EEDU_CORE_Team::Team_4:	VisibilityStruct.Team_4_VisibleActors.AddUnique(Actor);	break;
-			case EEDU_CORE_Team::Team_5:	VisibilityStruct.Team_5_VisibleActors.AddUnique(Actor);	break;
-			case EEDU_CORE_Team::Team_6:	VisibilityStruct.Team_6_VisibleActors.AddUnique(Actor);	break;
-			case EEDU_CORE_Team::Team_7:	VisibilityStruct.Team_7_VisibleActors.AddUnique(Actor);	break;
-			case EEDU_CORE_Team::Team_8:	VisibilityStruct.Team_8_VisibleActors.AddUnique(Actor);	break;
-			case EEDU_CORE_Team::Team_9:	VisibilityStruct.Team_9_VisibleActors.AddUnique(Actor);	break;
-			case EEDU_CORE_Team::Team_10:	VisibilityStruct.Team_10_VisibleActors.AddUnique(Actor);break;
+			case EEDU_CORE_Team::None:		VisibilityStruct.Team_0_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_0_HiddenActors.Remove(Actor);	break;
+			case EEDU_CORE_Team::Team_1:	VisibilityStruct.Team_1_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_1_HiddenActors.Remove(Actor);	break;
+			case EEDU_CORE_Team::Team_2:	VisibilityStruct.Team_2_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_2_HiddenActors.Remove(Actor);	break;
+			case EEDU_CORE_Team::Team_3:	VisibilityStruct.Team_3_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_3_HiddenActors.Remove(Actor);	break;
+			case EEDU_CORE_Team::Team_4:	VisibilityStruct.Team_4_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_4_HiddenActors.Remove(Actor);	break;
+			case EEDU_CORE_Team::Team_5:	VisibilityStruct.Team_5_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_5_HiddenActors.Remove(Actor);	break;
+			case EEDU_CORE_Team::Team_6:	VisibilityStruct.Team_6_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_6_HiddenActors.Remove(Actor);	break;
+			case EEDU_CORE_Team::Team_7:	VisibilityStruct.Team_7_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_7_HiddenActors.Remove(Actor);	break;
+			case EEDU_CORE_Team::Team_8:	VisibilityStruct.Team_8_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_8_HiddenActors.Remove(Actor);	break;
+			case EEDU_CORE_Team::Team_9:	VisibilityStruct.Team_9_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_9_HiddenActors.Remove(Actor);	break;
+			case EEDU_CORE_Team::Team_10:	VisibilityStruct.Team_10_VisibleActors.AddUnique(Actor); VisibilityStruct.Team_10_HiddenActors.Remove(Actor);	break;
 			
 		default: ;
 		}
@@ -459,17 +678,17 @@ void AEDU_CORE_GameMode::RemoveActorFromTeamVisibleActorsArray(AActor* Actor, EE
 	{
 		switch(TeamArray)
 		{
-			case EEDU_CORE_Team::None:		VisibilityStruct.Team_0_VisibleActors.Remove(Actor);		break;
-			case EEDU_CORE_Team::Team_1:	VisibilityStruct.Team_1_VisibleActors.Remove(Actor);		break;
-			case EEDU_CORE_Team::Team_2:	VisibilityStruct.Team_2_VisibleActors.Remove(Actor);		break;
-			case EEDU_CORE_Team::Team_3:	VisibilityStruct.Team_3_VisibleActors.Remove(Actor);		break;
-			case EEDU_CORE_Team::Team_4:	VisibilityStruct.Team_4_VisibleActors.Remove(Actor);		break;
-			case EEDU_CORE_Team::Team_5:	VisibilityStruct.Team_5_VisibleActors.Remove(Actor);		break;
-			case EEDU_CORE_Team::Team_6:	VisibilityStruct.Team_6_VisibleActors.Remove(Actor);		break;
-			case EEDU_CORE_Team::Team_7:	VisibilityStruct.Team_7_VisibleActors.Remove(Actor);		break;
-			case EEDU_CORE_Team::Team_8:	VisibilityStruct.Team_8_VisibleActors.Remove(Actor);		break;
-			case EEDU_CORE_Team::Team_9:	VisibilityStruct.Team_9_VisibleActors.Remove(Actor);		break;
-			case EEDU_CORE_Team::Team_10:	VisibilityStruct.Team_10_VisibleActors.Remove(Actor);		break;
+			case EEDU_CORE_Team::None:		VisibilityStruct.Team_0_VisibleActors.Remove(Actor); VisibilityStruct.Team_0_HiddenActors.AddUnique(Actor);		break;
+			case EEDU_CORE_Team::Team_1:	VisibilityStruct.Team_1_VisibleActors.Remove(Actor); VisibilityStruct.Team_1_HiddenActors.AddUnique(Actor);		break;
+			case EEDU_CORE_Team::Team_2:	VisibilityStruct.Team_2_VisibleActors.Remove(Actor); VisibilityStruct.Team_2_HiddenActors.AddUnique(Actor);		break;
+			case EEDU_CORE_Team::Team_3:	VisibilityStruct.Team_3_VisibleActors.Remove(Actor); VisibilityStruct.Team_3_HiddenActors.AddUnique(Actor);		break;
+			case EEDU_CORE_Team::Team_4:	VisibilityStruct.Team_4_VisibleActors.Remove(Actor); VisibilityStruct.Team_4_HiddenActors.AddUnique(Actor);		break;
+			case EEDU_CORE_Team::Team_5:	VisibilityStruct.Team_5_VisibleActors.Remove(Actor); VisibilityStruct.Team_5_HiddenActors.AddUnique(Actor);		break;
+			case EEDU_CORE_Team::Team_6:	VisibilityStruct.Team_6_VisibleActors.Remove(Actor); VisibilityStruct.Team_6_HiddenActors.AddUnique(Actor);		break;
+			case EEDU_CORE_Team::Team_7:	VisibilityStruct.Team_7_VisibleActors.Remove(Actor); VisibilityStruct.Team_7_HiddenActors.AddUnique(Actor);		break;
+			case EEDU_CORE_Team::Team_8:	VisibilityStruct.Team_8_VisibleActors.Remove(Actor); VisibilityStruct.Team_8_HiddenActors.AddUnique(Actor);		break;
+			case EEDU_CORE_Team::Team_9:	VisibilityStruct.Team_9_VisibleActors.Remove(Actor); VisibilityStruct.Team_9_HiddenActors.AddUnique(Actor);		break;
+			case EEDU_CORE_Team::Team_10:	VisibilityStruct.Team_10_VisibleActors.Remove(Actor); VisibilityStruct.Team_10_HiddenActors.AddUnique(Actor);		break;
 			
 		default: ;
 		}
@@ -515,6 +734,30 @@ TArray<AActor*>& AEDU_CORE_GameMode::GetTeamVisibleActorsArray(EEDU_CORE_Team Te
 		case EEDU_CORE_Team::Team_8: return VisibilityStruct.Team_8_VisibleActors;
 		case EEDU_CORE_Team::Team_9: return VisibilityStruct.Team_9_VisibleActors;
 		case EEDU_CORE_Team::Team_10: return VisibilityStruct.Team_10_VisibleActors;
+
+	default:
+		// Static empty array to return as a fallback
+			static TArray<AActor*> EmptyArray;
+		UE_LOG(LogTemp, Warning, TEXT("Invalid TeamArray enum value"));
+		return EmptyArray;
+	}
+}
+
+TArray<AActor*>& AEDU_CORE_GameMode::GetTeamHiddenActorsArray(EEDU_CORE_Team TeamArray)
+{
+	switch(TeamArray)
+	{
+	case EEDU_CORE_Team::None: return VisibilityStruct.Team_0_HiddenActors;
+	case EEDU_CORE_Team::Team_1: return VisibilityStruct.Team_1_HiddenActors;
+	case EEDU_CORE_Team::Team_2: return VisibilityStruct.Team_2_HiddenActors;
+	case EEDU_CORE_Team::Team_3: return VisibilityStruct.Team_3_HiddenActors;
+	case EEDU_CORE_Team::Team_4: return VisibilityStruct.Team_4_HiddenActors;
+	case EEDU_CORE_Team::Team_5: return VisibilityStruct.Team_5_HiddenActors;
+	case EEDU_CORE_Team::Team_6: return VisibilityStruct.Team_6_HiddenActors;
+	case EEDU_CORE_Team::Team_7: return VisibilityStruct.Team_7_HiddenActors;
+	case EEDU_CORE_Team::Team_8: return VisibilityStruct.Team_8_HiddenActors;
+	case EEDU_CORE_Team::Team_9: return VisibilityStruct.Team_9_HiddenActors;
+	case EEDU_CORE_Team::Team_10: return VisibilityStruct.Team_10_HiddenActors;
 
 	default:
 		// Static empty array to return as a fallback

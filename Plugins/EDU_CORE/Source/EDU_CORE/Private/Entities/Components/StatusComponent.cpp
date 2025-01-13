@@ -1,7 +1,8 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 // THIS
-#include "Entities/Components/EDU_CORE_StatusComponent.h"
+#include "Entities/Components/StatusComponent.h"
+#include "Entities/Components/ComponentExtensions/StatusComponent_ConditionManagment.h"
 
 // CORE
 #include "Framework/Data/FLOWLOGS/FLOWLOG_COMPONENTS.h"
@@ -15,7 +16,7 @@
 // Construction & Init
 //------------------------------------------------------------------------------
 
-UEDU_CORE_StatusComponent::UEDU_CORE_StatusComponent()
+UStatusComponent::UStatusComponent()
 { // Don't Run logs in a component constructor, run it in OnRegister instead.
 
     // Never Tick!
@@ -24,7 +25,7 @@ UEDU_CORE_StatusComponent::UEDU_CORE_StatusComponent()
     
 }
 
-void UEDU_CORE_StatusComponent::OnRegister()
+void UStatusComponent::OnRegister()
 { FLOW_LOG
     Super::OnRegister();
     
@@ -32,7 +33,7 @@ void UEDU_CORE_StatusComponent::OnRegister()
     SetIsReplicated(true);
 }
 
-void UEDU_CORE_StatusComponent::BeginPlay()
+void UStatusComponent::BeginPlay()
 { FLOW_LOG
 	Super::BeginPlay();
     
@@ -63,7 +64,7 @@ void UEDU_CORE_StatusComponent::BeginPlay()
     }
 }
 
-void UEDU_CORE_StatusComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void UStatusComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
@@ -85,22 +86,28 @@ void UEDU_CORE_StatusComponent::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 // Aggregated Server tick
 //------------------------------------------------------------------------------
 
-void UEDU_CORE_StatusComponent::ServerStatusCalc(float DeltaTime)
+void UStatusComponent::ServerStatusCalc(float DeltaTime)
 {
 
 }
 
-void UEDU_CORE_StatusComponent::ServerStatusExec(float DeltaTime)
+void UStatusComponent::ServerStatusExec(float DeltaTime)
 {
     // Decrement Visibility
     VisibilityTick();
+
+    // Regenerate
+    if(CurrentHealth < MaxHealth)
+    {
+        CurrentHealth += FMath::Clamp(HealthRegen, -MaxHealth, MaxHealth);
+    }
 }
 
 //--------------------------------------------------------------------------
 // Functionality > Damage Handling
 //--------------------------------------------------------------------------
 
-void UEDU_CORE_StatusComponent::ApplyDamage(const float DamageAmount, const float Penetration, const EDamageType DamageType, const float ProtectionRatio)
+void UStatusComponent::ApplyDamage(const float DamageAmount, const float Penetration, const EDamageType DamageType, const float ProtectionRatio)
 { FLOW_LOG
     /*------------------------------------------------------------------------------------
       The damage system functions based on protection levels that must be defeated for
@@ -339,7 +346,7 @@ void UEDU_CORE_StatusComponent::ApplyDamage(const float DamageAmount, const floa
     float DamageMagnitude = CurrentHealth / PreviousHealth;
 }
 
-float UEDU_CORE_StatusComponent::CalculateDamage(const float DamageAmount, float Penetration, float& Protection, const float ProtectionRatio) const
+float UStatusComponent::CalculateDamage(const float DamageAmount, float Penetration, float& Protection, const float ProtectionRatio) const
 { FLOW_LOG
     // This is the chance of us bypassing protection entierly (IE shooting someone carrying a chest plate in the face).
     if(FMath::RandRange(0, 100) > Coverage)
@@ -398,17 +405,240 @@ float UEDU_CORE_StatusComponent::CalculateDamage(const float DamageAmount, float
     return CriticalDamage + ExcessDamage;
 }
 
+//--------------------------------------------------------------------------
+// Functionality > Conditions & Traits
+//--------------------------------------------------------------------------
+
+void UStatusComponent::AddOrganicCondition(const EOrganicConditions Condition)
+{
+    FOrganicCondition OrganicCondition = StatusComponent_ConditionManagment::InitOrganicCondition(Condition);
+    OrganicConditionSet.Add(OrganicCondition);
+
+    // Regen/Degen Rates
+    PhysiqueDegen    +=  OrganicCondition.PhysDegen;
+    ConditionDegen   +=  OrganicCondition.CondDegen;
+    HydrationDegen   +=  OrganicCondition.HydroDegen;
+    NutritionDegen   +=  OrganicCondition.NutrDegen;
+
+    // Flat Damage
+    PhysiqueDamage   +=  OrganicCondition.PhysDamage;
+    ConditionDamage  +=  OrganicCondition.CondDamage;
+    SustinanceDamage +=  OrganicCondition.SustDamage;
+    EnduranceDamage  +=  OrganicCondition.EnduDamage;
+}
+
+void UStatusComponent::RemoveOrganicCondition(const EOrganicConditions Condition)
+{
+    FOrganicCondition OrganicCondition = StatusComponent_ConditionManagment::InitOrganicCondition(Condition);
+    if(OrganicConditionSet.Find(OrganicCondition))
+    {
+        OrganicConditionSet.Remove(OrganicCondition);
+        
+        // Regen/Degen Rates
+        PhysiqueDegen    -=  OrganicCondition.PhysDegen;
+        ConditionDegen   -=  OrganicCondition.CondDegen;
+        HydrationDegen   -=  OrganicCondition.HydroDegen;
+        NutritionDegen   -=  OrganicCondition.NutrDegen;
+
+        // Flat Damage
+        PhysiqueDamage   -=  OrganicCondition.PhysDamage;
+        ConditionDamage  -=  OrganicCondition.CondDamage;
+        SustinanceDamage -=  OrganicCondition.SustDamage;
+        EnduranceDamage  -=  OrganicCondition.EnduDamage;
+    }
+}
+
+void UStatusComponent::CalculateOrganicStatus()
+{
+    // Lambda to calculate the status index based on the percentage
+    constexpr uint8 NumStatuses = 5;
+    auto GetStatusIndex = [](float CurrentValue, float MaxValue)
+    {
+        return FMath::Clamp(FMath::FloorToInt((CurrentValue / MaxValue) * NumStatuses), 0, NumStatuses - 1);
+    };
+
+    float PhysiquePercentage =  CurrentPhysique  / MaxPhysique;
+    float ConditionPercentage = CurrentCondition / MaxCondition;
+    float NutritionPercentage = CurrentNutrition / MaxNutrition;
+    float HydrationPercentage = CurrentHydration / MaxHydration;
+    float EndurancePercentage = CurrentEndurance / MaxEndurance;
+    
+    //-------------------------------------------------------------------
+    // Physique: The body’s physical structure, build, and composition.
+    //-------------------------------------------------------------------
+    if (CurrentPhysique <= CappedPhysique)
+    {
+        CurrentPhysique += (PhysiqueRegen + PhysiqueDegen);
+    }
+
+    if (PhysiquePercentage > 0.f)
+    {
+        switch (GetStatusIndex(CurrentPhysique, MaxPhysique))
+        {
+            case 0: PhysiqueStatus = EOrganicStatus_Physique::Wounded;  break;
+            case 1: PhysiqueStatus = EOrganicStatus_Physique::Injured;  break;
+            case 2: PhysiqueStatus = EOrganicStatus_Physique::InPain;   break;
+            case 3: PhysiqueStatus = EOrganicStatus_Physique::Grazed;   break;
+            case 4: PhysiqueStatus = EOrganicStatus_Physique::Solid;    break;
+        default: ;
+        }
+    }
+    else
+    {
+        PhysiqueStatus = EOrganicStatus_Physique::Unknown;
+    }
+
+    //--------------------------------------------------------------
+    // Condition: Illness, Disease, Affliction
+    //--------------------------------------------------------------
+    if (CurrentCondition <= MaxCondition)
+    {
+        CurrentCondition += (ConditionRegen + ConditionDegen);
+    }
+
+    if (ConditionPercentage > 0.f)
+    {
+        switch (GetStatusIndex(CurrentCondition, MaxCondition))
+        {
+            case 0: ConditionStatus = EOrganicStatus_Condition::Sick;        break;
+            case 1: ConditionStatus = EOrganicStatus_Condition::Feverish;    break;
+            case 2: ConditionStatus = EOrganicStatus_Condition::Nauseous;    break;
+            case 3: ConditionStatus = EOrganicStatus_Condition::Discomforted;break;
+            case 4: ConditionStatus = EOrganicStatus_Condition::Alert;       break;
+        default: ;
+        }
+    }
+    else
+    {
+        ConditionStatus = EOrganicStatus_Condition::Unknown;
+    }
+
+    //--------------------------------------------------------------
+    // Sustinance: Nutrition
+    //--------------------------------------------------------------
+    if (CurrentNutrition <= MaxNutrition)
+    {
+        CurrentNutrition += (NutritionRegen + NutritionDegen);
+    }
+
+    if (NutritionPercentage > 0.f)
+    {
+        switch (GetStatusIndex(CurrentNutrition, MaxNutrition))
+        {
+            case 0: NutritionStatus = EOrganicStatus_Nutrition::Starving;       break;
+            case 1: NutritionStatus = EOrganicStatus_Nutrition::Famished;       break;
+            case 2: NutritionStatus = EOrganicStatus_Nutrition::VeryHungry;     break;
+            case 3: NutritionStatus = EOrganicStatus_Nutrition::Hungry;         break;
+            case 4: NutritionStatus = EOrganicStatus_Nutrition::Satiated;       break;
+        default: ;
+        }
+    }
+    else
+    {
+        NutritionStatus = EOrganicStatus_Nutrition::Unknown;
+    }
+    
+    //--------------------------------------------------------------
+    // Sustinance: Hydration
+    //--------------------------------------------------------------
+    if (CurrentHydration <= MaxHydration)
+    {
+        CurrentHydration += (HydrationRegen + HydrationDegen);
+    }
+
+    if (HydrationPercentage > 0.f)
+    {
+        switch (GetStatusIndex(CurrentNutrition, MaxHydration))
+        {
+            case 0: HydrationStatus = EOrganicStatus_Hydration::DesperateForWater; break;
+            case 1: HydrationStatus = EOrganicStatus_Hydration::Dehydrated;        break;
+            case 2: HydrationStatus = EOrganicStatus_Hydration::VeryThirsty;       break;
+            case 3: HydrationStatus = EOrganicStatus_Hydration::Thirsty;           break;
+            case 4: HydrationStatus = EOrganicStatus_Hydration::Satiated;          break;
+        default: ;
+        }
+    }
+    else
+    {
+        HydrationStatus = EOrganicStatus_Hydration::Unknown;
+    }
+
+    //--------------------------------------------------------------
+    // Endurance
+    //--------------------------------------------------------------
+    if (CurrentEndurance <= MaxEndurance)
+    {
+        CurrentEndurance += (EnduranceRegen + EnduranceDegen);
+    }
+
+    if (EndurancePercentage > 0.f)
+    {
+        switch (GetStatusIndex(CurrentNutrition, MaxHydration))
+        {
+            case 0: EnduranceStatus = EOrganicStatus_Endurance::Exhausted;      break;
+            case 1: EnduranceStatus = EOrganicStatus_Endurance::Tired;          break;
+            case 2: EnduranceStatus = EOrganicStatus_Endurance::Winded;         break;
+            case 3: EnduranceStatus = EOrganicStatus_Endurance::Warmedup;       break;
+            case 4: EnduranceStatus = EOrganicStatus_Endurance::Rested;         break;
+        default: ;
+        }
+    }
+    else
+    {
+        EnduranceStatus = EOrganicStatus_Endurance::Unknown;
+    }
+
+    //--------------------------------------------------------------
+    // Mental State
+    //--------------------------------------------------------------
+    if (CurrentMentalState <= 1.f)
+    {
+        CurrentMentalState += (EnduranceRegen + EnduranceDegen);
+    }
+
+    CurrentMentalState =
+        (PhysiquePercentage
+        + ConditionPercentage
+        + NutritionPercentage
+        + HydrationPercentage
+        + EndurancePercentage) / 5.0f;
+
+    if ((CurrentMentalState / 1.f) > 0.f)
+    {
+        switch (GetStatusIndex(CurrentMentalState, 1.f))
+        {
+            case 0: MentalStatus = EOrganicStatus_Mental::Panicked;       break;
+            case 1: MentalStatus = EOrganicStatus_Mental::Scared;         break;
+            case 2: MentalStatus = EOrganicStatus_Mental::Shaken;         break;
+            case 3: MentalStatus = EOrganicStatus_Mental::Stressed;       break;
+            case 4: MentalStatus = EOrganicStatus_Mental::Steady;         break;
+        default: ;
+        }
+    }
+    else
+    {
+        MentalStatus = EOrganicStatus_Mental::Unknown;
+    }
+}
+
+//--------------------------------------------------------------------------
+// Functionality > Organic Calculations
+//--------------------------------------------------------------------------
+
+
 
 //--------------------------------------------------------------------------
 // Functionality > Utility
 //--------------------------------------------------------------------------
 
-void UEDU_CORE_StatusComponent::ChangeTeam(EEDU_CORE_Team NewTeam)
+void UStatusComponent::ChangeTeam(EEDU_CORE_Team NewTeam)
 { FLOW_LOG
     // Only the server should be allowed to do this.
     if(!HasAuthority()) return;
 
+    GameMode->RemoveActorFromTeamArray(GetOwner(), ActiveTeam);
     ActiveTeam = NewTeam;
+    GameMode->AddActorToTeamArray(GetOwner(), ActiveTeam);
 
     UpdateHostileTeams();
     
@@ -416,7 +646,7 @@ void UEDU_CORE_StatusComponent::ChangeTeam(EEDU_CORE_Team NewTeam)
 
 }
 
-void UEDU_CORE_StatusComponent::UpdateHostileTeams()
+void UStatusComponent::UpdateHostileTeams()
 { FLOW_LOG
     // Only the server should be allowed to do this.
     if(!HasAuthority()) return;
@@ -435,7 +665,7 @@ void UEDU_CORE_StatusComponent::UpdateHostileTeams()
     }
 }
 
-void UEDU_CORE_StatusComponent::SetVisibleForTeam(EEDU_CORE_Team TeamIndex, uint8 Time)
+void UStatusComponent::SetVisibleForTeam(EEDU_CORE_Team TeamIndex, uint8 Time)
 {
     switch (TeamIndex)
     {
@@ -455,8 +685,75 @@ void UEDU_CORE_StatusComponent::SetVisibleForTeam(EEDU_CORE_Team TeamIndex, uint
     }
 }
 
-void UEDU_CORE_StatusComponent::ResetVisibilityForTeam(EEDU_CORE_Team TeamIndex)
-{ FLOW_LOG
+uint8 UStatusComponent::GetVisibleForTeam(EEDU_CORE_Team TeamIndex) const
+{
+    switch (TeamIndex)
+    {
+        case EEDU_CORE_Team::None:		return VisibilityForTeam_0;     
+        case EEDU_CORE_Team::Team_1:	return VisibilityForTeam_1;     
+        case EEDU_CORE_Team::Team_2:	return VisibilityForTeam_2;    
+        case EEDU_CORE_Team::Team_3:	return VisibilityForTeam_3;
+        case EEDU_CORE_Team::Team_4:	return VisibilityForTeam_4;
+        case EEDU_CORE_Team::Team_5:	return VisibilityForTeam_5;
+        case EEDU_CORE_Team::Team_6:	return VisibilityForTeam_6;
+        case EEDU_CORE_Team::Team_7:	return VisibilityForTeam_7;
+        case EEDU_CORE_Team::Team_8:	return VisibilityForTeam_8; 
+        case EEDU_CORE_Team::Team_9:	return VisibilityForTeam_9;
+        case EEDU_CORE_Team::Team_10:	return VisibilityForTeam_10;
+			        
+    default: return VisibilityForTeam_0;
+    }
+}
+
+float UStatusComponent::GetDefenceAgainst(EDamageType DamageType) const
+{
+    switch (DamageType)
+    {
+        case EDamageType::EDT_Kinetic:
+            if(bKineticImmune) return FLT_MAX;
+            return KineticDefence;
+        ;
+
+        case EDamageType::EDT_Cold:
+            if(bColdImmune) return FLT_MAX;
+            return ColdResistance;
+        ;
+        
+        case EDamageType::EDT_Heat:
+            if(bHeatImmune) return FLT_MAX;
+            return ColdResistance;
+        ;
+
+        case EDamageType::EDT_Radiation:
+            if(bRadiationImmune) return FLT_MAX;
+            return RadiationResistance;
+        ;
+
+        case EDamageType::EDT_Biological:
+            if(bBioImmune) return FLT_MAX;
+            return BiologicalResistance;
+        ;
+
+        case EDamageType::EDT_Chemical:
+            if(bChemImmune) return FLT_MAX;
+            return ChemicalResistance;
+        ;
+
+        case EDamageType::EDT_Malware:
+            if(bMalwareImmune) return FLT_MAX;
+            return MalwareResistance;
+        ;
+
+        case EDamageType::EDT_Chaos:
+            if (bChaosImmune) return FLT_MAX;
+            return ChaosResistance;
+        
+        default: return FLT_MAX;;
+    }
+}
+
+void UStatusComponent::ResetVisibilityForTeam(EEDU_CORE_Team TeamIndex)
+{ // FLOW_LOG
 
     switch (TeamIndex)
     {
@@ -480,7 +777,7 @@ void UEDU_CORE_StatusComponent::ResetVisibilityForTeam(EEDU_CORE_Team TeamIndex)
 // Functionality > Networking
 //--------------------------------------------------------------------------
 
-void UEDU_CORE_StatusComponent::CheckLocalPlayer()
+void UStatusComponent::CheckLocalPlayer()
 { FLOW_LOG
     
     // This should never fail, unless we are a dedicated server.
@@ -496,7 +793,7 @@ void UEDU_CORE_StatusComponent::CheckLocalPlayer()
     }
 }
 
-void UEDU_CORE_StatusComponent::VisibilityTick()
+void UStatusComponent::VisibilityTick()
 {    
     if(!HasAuthority()) return;
 
@@ -532,7 +829,7 @@ void UEDU_CORE_StatusComponent::VisibilityTick()
     Server_VisibilityForTeamUpdate();
 }
 
-void UEDU_CORE_StatusComponent::Server_VisibilityForTeamUpdate_Implementation() const
+void UStatusComponent::Server_VisibilityForTeamUpdate_Implementation() const
 {
     if(GetNetMode() == NM_ListenServer || GetNetMode() == NM_Standalone)
     {
@@ -555,7 +852,7 @@ void UEDU_CORE_StatusComponent::Server_VisibilityForTeamUpdate_Implementation() 
     }
 }
 
-void UEDU_CORE_StatusComponent::OnRep_VisibilityForTeamUpdate() const
+void UStatusComponent::OnRep_VisibilityForTeamUpdate() const
 { FLOW_LOG
     
     // <!> Client only

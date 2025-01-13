@@ -1209,6 +1209,7 @@ void AEDU_CORE_SpectatorCamera::Input_AutoScroll_Released(const FInputActionValu
 void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Pressed(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	if(!ShouldReceiveInput()) { return; }
+	
 	// Check if Ctrl is held, and select all entities of the same class as the one under the cursor.
 	if (ModifierKey == EEDU_CORE_InputModifierKey::Mod_2)
 	{
@@ -1217,7 +1218,7 @@ void AEDU_CORE_SpectatorCamera::Input_Mouse_1_Pressed(const FInputActionValue& I
 		LocalController->GetMousePosition(MousePos.X, MousePos.Y);
 		float TraceLength = ZoomTraceLength + SpringArmComponent->TargetArmLength;
 		LocalHUD->DetectEntityUnderCursor(MousePos, TraceLength);
-
+		
 		// The HUD needs to finish its search before we copy the Array, if the timer is too fast, Input_Mouse_1_Released still works.
 		FTimerHandle WaitForHUD;
 		GetWorld()->GetTimerManager().SetTimer(WaitForHUD, this, &ThisClass::CopyEntitiesInHUDSelectionArray, 0.1f, false);

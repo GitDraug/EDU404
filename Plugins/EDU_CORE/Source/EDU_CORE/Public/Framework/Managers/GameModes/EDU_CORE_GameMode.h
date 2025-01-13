@@ -9,6 +9,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "EDU_CORE_GameMode.generated.h"
 
+class UFixedWeaponComponent;
+class UTurretWeaponComponent;
 class AEDU_CORE_MobileEntity;
 class AEDU_CORE_AbstractEntity;
 class AEDU_CORE_PhysicsEntity;
@@ -17,8 +19,9 @@ class AEDU_CORE_Waypoint;
 class URTS_CORE_GameDataAsset;
 class IEDU_CORE_CommandInterface;
 
-class UEDU_CORE_SenseComponent;
-class UEDU_CORE_StatusComponent;
+class USenseComponent;
+class UStatusComponent;
+class UEngagementComponent;
 
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
@@ -130,6 +133,9 @@ class EDU_CORE_API AEDU_CORE_GameMode : public AGameModeBase
 public:
 	AEDU_CORE_GameMode(const FObjectInitializer& ObjectInitializer);
 
+	// Reserve space for arrays
+	virtual void InitiateArrays();
+
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void BeginPlay() override;
@@ -142,8 +148,11 @@ public:
 	void AddToAbstractEntityArray(AEDU_CORE_AbstractEntity* AbstractEntity);
 	void AddToPhysicsEntityArray(AEDU_CORE_PhysicsEntity* PhysicsEntity);
 	void AddToMobileEntityArray(AEDU_CORE_MobileEntity* MobileEntity);
-	void AddToSightComponentArray(UEDU_CORE_SenseComponent* SightComponent);
-	void AddToStatusComponentArray(UEDU_CORE_StatusComponent* StatusComponent);
+	void AddToSightComponentArray(USenseComponent* SightComponent);
+	void AddToStatusComponentArray(UStatusComponent* StatusComponent);
+	void AddToTurretComponentArray(UTurretWeaponComponent* TurretComponent);
+	void AddToFixedWeaponComponentArray(UFixedWeaponComponent* FixedWeaponComponent);
+	void AddToEngagementComponentArray(UEngagementComponent* EngagementComponent);
 
 	// Used when checking if a Unit Order came from the right Team.
 	void AddActorToTeamArray(AActor* Actor, EEDU_CORE_Team TeamArray = EEDU_CORE_Team::None);
@@ -153,11 +162,14 @@ public:
 	void AddActorToTeamVisibleActorsArray(AActor* Actor, EEDU_CORE_Team TeamArray = EEDU_CORE_Team::None);
 	void RemoveActorFromTeamVisibleActorsArray(AActor* Actor, EEDU_CORE_Team TeamArray = EEDU_CORE_Team::None);
 	
-	// For other Actors to see what firendly actors are on their team.
+	// For other Actors to see what friendly actors are on their team.
 	TArray<AActor*>& GetTeamArray(EEDU_CORE_Team TeamArray = EEDU_CORE_Team::None);
 
 	// For Actors to see what enemy actors are visible to their team.
 	TArray<AActor*>& GetTeamVisibleActorsArray(EEDU_CORE_Team TeamArray = EEDU_CORE_Team::None);
+
+	// For Weapons to see what enemy actors are Hidden to their team (to ignore them).
+	TArray<AActor*>& GetTeamHiddenActorsArray(EEDU_CORE_Team TeamArray = EEDU_CORE_Team::None);
 	
 	// For Entities and Actors to register across instances.
 	void AddToGuidActorMap(FGuid GUID, AActor* Actor);
@@ -173,7 +185,7 @@ public:
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
-//protected:
+protected:
 	
 	/*--------------------------- AI Waypoint pool ---------------------------------
   
@@ -269,10 +281,19 @@ public:
 	TArray<TObjectPtr<AEDU_CORE_MobileEntity>> MobileEntityArray;
 
 	UPROPERTY()
-	TArray<TObjectPtr<UEDU_CORE_SenseComponent>> SightComponentArray;
+	TArray<TObjectPtr<USenseComponent>> SightComponentArray;
 	
 	UPROPERTY()
-	TArray<TObjectPtr<UEDU_CORE_StatusComponent>> StatusComponentArray;
+	TArray<TObjectPtr<UStatusComponent>> StatusComponentArray;
+
+	UPROPERTY()
+	TArray<TObjectPtr<UTurretWeaponComponent>> TurretComponentArray;
+
+	UPROPERTY()
+	TArray<TObjectPtr<UFixedWeaponComponent>> FixedWeaponComponentArray;
+	
+	UPROPERTY()
+	TArray<TObjectPtr<UEngagementComponent>> EngagementComponentArray;
 
 	/*------------------------------ BatchIndex ------------------------------------
 	  BatchIndex allows us to pass tick groups to our array members, so only
@@ -284,33 +305,59 @@ public:
 	------------------------------------------------------------------------------*/
 	
 	// This Batch divides the slice into 10.
+	
 	int32 BatchIndex_10;
 	int32 CurrentBatchIndex_10 = 0;
 
 	// This Batch divides the slice into 100.
 	int32 BatchIndex_100;
 	int32 CurrentBatchIndex_100 = 0;
+
+	UPROPERTY()
+	TScriptInterface<IEDU_CORE_CommandInterface> CommandInterface;
+	// IEDU_CORE_CommandInterface* CommandInterface;
+
+	int32 MobileEntityBatchIndex;
+	int32 SightComponentBatchIndex;
+	int32 StatusComponentBatchIndex;
+	int32 TurretComponentBatchIndex;
+	int32 FixedWeaponComponentBatchIndex;
+	int32 EngagementComponentBatchIndex;
 	
-	IEDU_CORE_CommandInterface* CommandInterface;
+	float LastMobilEntityBatchTime;
+	float LastStatusComponentTime;
+	float LastEngagementComponentTime;
+	float LastSightComponentTime;
+	float LastTurretComponentTime;
+	float LastFixedWeaponComponentTime;
 
-	int32 MobileBatchIndex;
-	int32 SightBatchIndex;
-	int32 StatusBatchIndex;
-	float LastMobileBatchTime;
-	float LastStatusTime;
-	float LastSightTime;
+	UPROPERTY()
+	float AsyncedClock = 0;
 
-	float CurrentTime = 0.f;
+	UPROPERTY()
+	float LastAsyncedClock = 0;
+	
+	UPROPERTY()
+	float AsyncDeltaTime = 0.f;
+
+	UPROPERTY()
+	float AccumulatedAsyncDeltatime = 0.f;
+	
+	UPROPERTY()
+	float LastAccumulatedAsyncTicks = 0.f;
+	
 
 //------------------------------------------------------------------------------
 // Components > Debug
 //------------------------------------------------------------------------------
 	
 	FColor DeltaTimeDisplayColor;
-	
+
+	int32 CurrentFrameTime = 0;
 	float FPSCounter = 0;
 	float FPSTotal = 0;
 
+	int32 FrameTimeCounter;
 	
 //------------------------------------------------------------------------------
 // Console Commands

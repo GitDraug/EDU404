@@ -1,11 +1,12 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 // THIS
-#include "Entities/Components/EDU_CORE_SenseComponent.h"
+#include "Entities/Components/SenseComponent.h"
 
 // CORE
 #include "Entities/EDU_CORE_PhysicsEntity.h"
-#include "Entities/Components/EDU_CORE_StatusComponent.h"
+#include "Entities/Components/StatusComponent.h"
+#include "Entities/Components/TurretWeaponComponent.h"
 #include "Framework/Data/FLOWLOGS/FLOWLOG_COMPONENTS.h"
 #include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
 #include "Framework/Pawns/EDU_CORE_C2_Camera.h"
@@ -14,7 +15,7 @@
 // Construction & Init
 //------------------------------------------------------------------------------
 
-UEDU_CORE_SenseComponent::UEDU_CORE_SenseComponent()
+USenseComponent::USenseComponent()
 {
 	// Don't Run logs in a component constructor, run it in OnRegister instead.
 
@@ -23,7 +24,7 @@ UEDU_CORE_SenseComponent::UEDU_CORE_SenseComponent()
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
-void UEDU_CORE_SenseComponent::OnRegister()
+void USenseComponent::OnRegister()
 {
 	FLOW_LOG
 	Super::OnRegister();
@@ -31,17 +32,32 @@ void UEDU_CORE_SenseComponent::OnRegister()
 	// Save this component owning actor
 	Owner = GetOwner();
 
-	// Ensure that we have a Status Component, this component is useless otherwise
+	if(bAttachedToTurret && Owner)
+	{
+		TArray<UTurretWeaponComponent*> TurretComponents;
+		Owner->GetComponents<UTurretWeaponComponent>(TurretComponents);
+
+		for (UTurretWeaponComponent* TurretComp : TurretComponents)
+		{
+			if(TurretComp && TurretComp->GetName() == TurretName)
+			{
+				Parent = TurretComp;
+				break;
+			}
+		}
+	}
+	
+	// Ensure that we have a Status Component; this component is useless otherwise
 	EnsureStatusComponent();
 }
 
-void UEDU_CORE_SenseComponent::BeginPlay()
-{
-	FLOW_LOG
-	Super::BeginPlay();
 
+void USenseComponent::BeginPlay()
+{	FLOW_LOG	
+	Super::BeginPlay();
+	
 	// Server Tick
-	if (GetNetMode() != NM_Client)
+	if(HasAuthority())
 	{
 		if (AEDU_CORE_GameMode* GameModePtr = Cast<AEDU_CORE_GameMode>(GetWorld()->GetAuthGameMode()))
 		{
@@ -55,19 +71,10 @@ void UEDU_CORE_SenseComponent::BeginPlay()
 // Aggregated Server tick
 //------------------------------------------------------------------------------
 
-void UEDU_CORE_SenseComponent::ServerSightCalc(float DeltaTime)
+void USenseComponent::ServerSightCalc(float DeltaTime)
 {
-}
-
-void UEDU_CORE_SenseComponent::ServerSightExec(float DeltaTime)
-{
-	/*-------------------------------------------------------------------
-	  I haven't spotted any difference running this in parallel for
-	  or on the main thread. Mayde there's a difference if we run them
-	  in more frequent batches.
-
-	  More testing needed. // Draug
-	-------------------------------------------------------------------*/
+	if (!HasAuthority()) return;
+	
 	switch (SenseType) {
 		case EFSenseType::ESense_Sight:
 			DetectActorsInFOV();
@@ -88,13 +95,15 @@ void UEDU_CORE_SenseComponent::ServerSightExec(float DeltaTime)
 		break;
 	default: ;
 	}
-	
-
 }
 
-void UEDU_CORE_SenseComponent::UpdateBatchIndex(const int32 ServerBatchIndex)
+void USenseComponent::ServerSightExec(float DeltaTime)
 {
-	FLOW_LOG
+	
+}
+
+void USenseComponent::UpdateBatchIndex(const int32 ServerBatchIndex)
+{ FLOW_LOG
 	BatchIndex = ServerBatchIndex;
 }
 
@@ -102,11 +111,10 @@ void UEDU_CORE_SenseComponent::UpdateBatchIndex(const int32 ServerBatchIndex)
 // Functionality
 //------------------------------------------------------------------------------
 
-void UEDU_CORE_SenseComponent::DetectActorsInFOV()
-{
-	// FLOW_LOG
+void USenseComponent::DetectActorsInFOV()
+{ // FLOW_LOG
 	/*---------------------------------------------------------------------
-	  This function checks for actors of a certain pbjectype in a sphere.
+	  This function checks for actors of a certain objectype in a sphere.
 	  
 	  The actors don't need or have "generate overlap events" enabled,
 	  nor do they need to block any specific channel. They only have
@@ -116,8 +124,19 @@ void UEDU_CORE_SenseComponent::DetectActorsInFOV()
 	---------------------------------------------------------------------*/
 	EEDU_CORE_Team OurTeam = StatusComponent->GetActiveTeam();
 
-	FVector ForwardVector = GetForwardVector();
-	FVector Location = GetComponentLocation() + (ForwardVector * SightFocusLength);
+	FTransform ParentTransform;
+	if(!Parent)
+	{
+		ParentTransform = Owner->GetTransform();
+	}
+	else
+	{
+		ParentTransform = Parent->GetComponentTransform();
+	}
+
+	FTransform CombinedTransform = ParentTransform * RelativeTransform;
+	FVector ForwardVector = CombinedTransform.GetRotation().GetForwardVector();
+	FVector Location = ParentTransform.GetLocation() + (ForwardVector * SightFocusLength);
 
 	// Define object types to check, add more as needed
 	FCollisionObjectQueryParams ObjectQueryParams;
@@ -139,7 +158,7 @@ void UEDU_CORE_SenseComponent::DetectActorsInFOV()
 	}
 	else
 	{
-		Rotation = FRotationMatrix::MakeFromZX(ForwardVector, GetUpVector()).ToQuat();
+		Rotation = FRotationMatrix::MakeFromZX(ForwardVector, Owner->GetActorUpVector()).ToQuat();
 		Shape = FCollisionShape::MakeCapsule(SightRadius, SightFocusLength);
 	}
 
@@ -166,8 +185,7 @@ void UEDU_CORE_SenseComponent::DetectActorsInFOV()
 				}
 				else
 				{
-					DrawDebugCapsule(GetWorld(), Location, SightFocusLength, SightRadius, Rotation, FColor::Yellow, false,
-					                 0.5f);
+					DrawDebugCapsule(GetWorld(), Location, SightFocusLength, SightRadius, Rotation, FColor::Yellow, false, 0.5f);
 				}
 			});
 		}
@@ -182,7 +200,7 @@ void UEDU_CORE_SenseComponent::DetectActorsInFOV()
 			{
 				if (AEDU_CORE_SelectableEntity* SelectableEntity = Cast<AEDU_CORE_SelectableEntity>(OverlappingActor))
 				{
-					if (UEDU_CORE_StatusComponent* TargetStatusComponent = SelectableEntity->GetStatusComponent())
+					if (UStatusComponent* TargetStatusComponent = SelectableEntity->GetStatusComponent())
 					{
 						int32 DetectionChance; // Default value
 
@@ -190,14 +208,18 @@ void UEDU_CORE_SenseComponent::DetectActorsInFOV()
 						{
 							case EFSenseType::ESense_SightAndThermal:
 								// Compare ThermalQuality with Camouflage
-								DetectionChance = ThermalQuality - SelectableEntity->GetStatusComponent()->GetThermalCamouflage();
+								DetectionChance = ThermalQuality - TargetStatusComponent->GetThermalCamouflage();
 
 								// If DetectionChance is positive, check it
 								if (DetectionChance > 0 && FMath::RandRange(1, 100) <= DetectionChance)
 								{
 									if (GetVisualConfirmation(SelectableEntity->GetActorLocation(), SelectableEntity))
 									{
-										SetEntityTeamVisibility(SelectableEntity, OurTeam, TargetStatusComponent);
+										AsyncTask(ENamedThreads::GameThread, [this, SelectableEntity, OurTeam, TargetStatusComponent]()
+										{
+											// Make sure the entity is invisible to avoid duplicates.
+											SetEntityTeamVisibility(SelectableEntity, OurTeam, TargetStatusComponent);
+										});
 										continue; // Continue for loop if thermal detection is successful.
 									}
 								}
@@ -212,7 +234,10 @@ void UEDU_CORE_SenseComponent::DetectActorsInFOV()
 								{
 									if (GetVisualConfirmation(SelectableEntity->GetActorLocation(), SelectableEntity))
 									{
-										SetEntityTeamVisibility(SelectableEntity, OurTeam, TargetStatusComponent);
+										AsyncTask(ENamedThreads::GameThread, [this, SelectableEntity, OurTeam, TargetStatusComponent]()
+										{
+											SetEntityTeamVisibility(SelectableEntity, OurTeam, TargetStatusComponent);
+										});
 									}
 								}
 							break;
@@ -228,7 +253,7 @@ void UEDU_CORE_SenseComponent::DetectActorsInFOV()
 	SensedActorsArray.Reset();
 }
 
-bool UEDU_CORE_SenseComponent::GetVisualConfirmation(const FVector& EndLocation, const AActor* ActorToConfirm) const
+bool USenseComponent::GetVisualConfirmation(const FVector& EndLocation, const AActor* ActorToConfirm) const
 {
 	// FLOW_LOG
 	// Check if we have a valid world context
@@ -248,7 +273,7 @@ bool UEDU_CORE_SenseComponent::GetVisualConfirmation(const FVector& EndLocation,
 	// Perform the line trace (single hit)
 	World->LineTraceSingleByChannel(
 		HitResult, // The result of the trace
-		GetComponentLocation(), // Starting location of the trace
+		Owner->GetActorUpVector(), // Starting location of the trace
 		EndLocation, // Ending location of the trace
 		SenseObjectType, // Collision channel to trace for
 		QueryParams // Query parameters
@@ -257,53 +282,51 @@ bool UEDU_CORE_SenseComponent::GetVisualConfirmation(const FVector& EndLocation,
 	// Optional: draw a debug line for visualization
 	if (HitResult.GetActor() == ActorToConfirm)
 	{
-	#if WITH_EDITOR
-		if (bDrawSightDebugLine)
-		{
-			if (!IsInGameThread())
+		#if WITH_EDITOR
+			if (bDrawSightDebugLine)
 			{
-				// If not, queue the function to run on the main thread
-				AsyncTask(ENamedThreads::GameThread, [this, World, EndLocation]
+				// Green line indicates confirmation.
+				if (!IsInGameThread())
 				{
-					// Green line indicates confirmati
-					DrawDebugLine(World, GetComponentLocation(), EndLocation, FColor::Green, false, 1.0f, 0, 1.0f);
-				});
+					// If not, queue the function to run on the main thread
+					AsyncTask(ENamedThreads::GameThread, [this, World, EndLocation]
+					{
+						DrawDebugLine(World, Owner->GetActorLocation(), EndLocation, FColor::Green, false, 1.0f, 0, 1.0f);
+					});
+				}
+				else
+				{
+					DrawDebugLine(World, Owner->GetActorLocation(), EndLocation, FColor::Green, false, 1.0f, 0, 1.0f);
+				}
 			}
-			else
-			{
-				// Green line indicates confirmati
-				DrawDebugLine(World, GetComponentLocation(), EndLocation, FColor::Green, false, 1.0f, 0, 1.0f);
-			}
-		}
-	#endif
+		#endif
 	return true;
 	}
-	#if WITH_EDITOR
-		if (bDrawSightDebugLine)
-		{
-			if (!IsInGameThread())
+		#if WITH_EDITOR
+			if (bDrawSightDebugLine)
 			{
-				// If not, queue the function to run on the main thread
-				AsyncTask(ENamedThreads::GameThread, [this, World, EndLocation]
+				// Red line indicates fail.
+				if (!IsInGameThread())
 				{
-					// Red line indicates fail
-					DrawDebugLine(World, GetComponentLocation(), EndLocation, FColor::Red, false, 1.0f, 0, 1.0f);
-				});
+					// If not, queue the function to run on the main thread
+					AsyncTask(ENamedThreads::GameThread, [this, World, EndLocation]
+					{
+						DrawDebugLine(World, Owner->GetActorLocation(), EndLocation, FColor::Red, false, 1.0f, 0, 1.0f);
+					});
+				}
+				else
+				{
+					DrawDebugLine(World, Owner->GetActorLocation(), EndLocation, FColor::Red, false, 1.0f, 0, 1.0f);
+				}
 			}
-			else
-			{
-				// Red line indicates fail
-				DrawDebugLine(World, GetComponentLocation(), EndLocation, FColor::Red, false, 1.0f, 0, 1.0f);
-			}
-		}
-	#endif
+		#endif
 	return false;
 }
 
-void UEDU_CORE_SenseComponent::Listen()
+void USenseComponent::Listen()
 { // FLOW_LOG
 	/*---------------------------------------------------------------------
-	  This function checks for actors of a certain pbjectype in a sphere.
+	  This function checks for actors of a certain objectype in a sphere.
 	  
 	  The actors don't need or have "generate overlap events" enabled,
 	  nor do they need to block any specific channel. They only have
@@ -327,7 +350,7 @@ void UEDU_CORE_SenseComponent::Listen()
 	// Perform the shape overlap
 	GetWorld()->OverlapMultiByObjectType(
 		SensedActorsArray, // Array to hold results
-		GetComponentLocation(), // Center of the sphere
+		Owner->GetActorLocation(), // Center of the sphere
 		FQuat::Identity, // Rotation
 		ObjectQueryParams, // Object types to overlap (e.g., ECC_Destructible)
 		FCollisionShape::MakeSphere(HearingRadius), // Shape to check
@@ -341,7 +364,7 @@ void UEDU_CORE_SenseComponent::Listen()
 			// Always do this on the main thread.
 			AsyncTask(ENamedThreads::GameThread, [this]()
 			{
-				DrawDebugSphere(GetWorld(), GetComponentLocation(), HearingRadius, 24, FColor::Orange, false, 0.5f);
+				DrawDebugSphere(GetWorld(), Owner->GetActorLocation(), HearingRadius, 24, FColor::Orange, false, 0.5f);
 			});
 		}
 	#endif
@@ -355,8 +378,10 @@ void UEDU_CORE_SenseComponent::Listen()
 			{
 				if (AEDU_CORE_SelectableEntity* SelectableEntity = Cast<AEDU_CORE_SelectableEntity>(OverlappingActor))
 				{
-					if (UEDU_CORE_StatusComponent* TargetStatusComponent = SelectableEntity->GetStatusComponent())
+					if (UStatusComponent* TargetStatusComponent = SelectableEntity->GetStatusComponent())
 					{
+						// Make sure the entity is invisible to avoid duplicates.
+						if(TargetStatusComponent->GetVisibleForTeam(OurTeam) > 0) return;
 						// Compare SightQuality with Camouflage, then assign the result to DetectionChance
 						int32 DetectionChance = HearingQuality - SelectableEntity->GetStatusComponent()->GetNoiseCamouflage();
 
@@ -369,31 +394,27 @@ void UEDU_CORE_SenseComponent::Listen()
 						// Generate a random failure between 1 and 100 and pray it's less than DetectionChance
 						if (FMath::RandRange(1, 100) <= DetectionChance)
 						{
-							SetEntityTeamVisibility(SelectableEntity, OurTeam, TargetStatusComponent);
+							AsyncTask(ENamedThreads::GameThread, [this, SelectableEntity, OurTeam, TargetStatusComponent]()
+							{
+								SetEntityTeamVisibility(SelectableEntity, OurTeam, TargetStatusComponent);
+							});	
 						}
 					}
 				}
 			}
 		}
 	}
-
+	
 	// If we don't reset this, the entity will remember the unit it sensed indefinitly.
 	SensedActorsArray.Reset();
 }
 
-void UEDU_CORE_SenseComponent::SetEntityTeamVisibility(AEDU_CORE_SelectableEntity* SelectableEntity,
+void USenseComponent::SetEntityTeamVisibility(AEDU_CORE_SelectableEntity* SelectableEntity,
                                                        EEDU_CORE_Team OurTeam,
-                                                       UEDU_CORE_StatusComponent* TargetStatusComponent) const
-{
-	FLOW_LOG
-	if (!HasAuthority())
-	{
-		return;
-	}
-	if (GetNetMode() == NM_Client)
-	{
-		return;
-	}
+                                                       UStatusComponent* TargetStatusComponent) const
+{// FLOW_LOG
+	// Make sure Target Visibility for Our Team is less than half the visibility timer, else we will add duplicates.
+	if (!(TargetStatusComponent->GetVisibleForTeam(OurTeam) < (TargetStatusComponent->GetVisibilityTimer() >> 1))) return;
 
 	// It's easy to get confused here, we are adding the enemy to OUR array of visible actors.
 	GameMode->AddActorToTeamVisibleActorsArray(SelectableEntity, OurTeam);
@@ -401,7 +422,7 @@ void UEDU_CORE_SenseComponent::SetEntityTeamVisibility(AEDU_CORE_SelectableEntit
 	// Notify Enemy that it is spotted by ActiveTeam
 	TargetStatusComponent->ResetVisibilityForTeam(OurTeam);
 
-	UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Visual Confirmation Succeded! Adding %s to VisibleActorsArray %d"), *SelectableEntity->GetName(), OurTeam);
+	// UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Visual Confirmation Succeded! Adding %s to VisibleActorsArray %d"), *SelectableEntity->GetName(), OurTeam);
 
 	// Check if the value at that index is 1 (true/visible) or 0 (false/hidden)
 	if (OurTeam == StatusComponent->GetC2Camera()->ActiveTeam)
@@ -415,12 +436,11 @@ void UEDU_CORE_SenseComponent::SetEntityTeamVisibility(AEDU_CORE_SelectableEntit
 // Functionality > Setup
 //------------------------------------------------------------------------------
 
-void UEDU_CORE_SenseComponent::EnsureStatusComponent()
-{
-	FLOW_LOG
+void USenseComponent::EnsureStatusComponent()
+{ FLOW_LOG
 	if (Owner)
 	{
-		StatusComponent = Owner->FindComponentByClass<UEDU_CORE_StatusComponent>();
+		StatusComponent = Owner->FindComponentByClass<UStatusComponent>();
 
 		if (!StatusComponent)
 		{

@@ -5,31 +5,27 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Framework/Data/DataTypes/EDU_CORE_DataTypes.h"
-#include "EDU_CORE_StatusComponent.generated.h"
+#include "StatusComponent.generated.h"
 
+
+enum class EOrganicConditions : uint16;
 class USphereComponent;
 class UBoxComponent;
 class AEDU_CORE_GameMode;
 class AEDU_CORE_SpectatorCamera;
 class AEDU_CORE_C2_Camera;
 
-// Enum for different damage types
-UENUM(BlueprintType) // Allow this enum to be used in Blueprints
-enum class EDamageType : uint8
-{
-	EDT_Kinetic			UMETA(DisplayName = "Kinetic"),
-	EDT_Cold			UMETA(DisplayName = "Cold"),
-	EDT_Heat			UMETA(DisplayName = "Heat"),
-	EDT_Radiation		UMETA(DisplayName = "Radiation"),
-	EDT_Biological		UMETA(DisplayName = "Biological"),
-	EDT_Chemical		UMETA(DisplayName = "Chemical"),
-	EDT_Malware			UMETA(DisplayName = "Malware"),
-	EDT_Chaos			UMETA(DisplayName = "Chaos"),
-	EDT_Max				UMETA(Hidden)
-};
+/*------------------------------------------------------------------------------
+  Status Component
+--------------------------------------------------------------------------------
+  Acts as a manager for self-centered stats, such as Health and Damage.
+  
+  All Health and Damage is self-inflicted, while engagements ond offensive
+  actions aimed at other enteties are managed in the EngagementComponent.
+------------------------------------------------------------------------------*/
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class EDU_CORE_API UEDU_CORE_StatusComponent : public UActorComponent
+class EDU_CORE_API UStatusComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
@@ -39,7 +35,10 @@ class EDU_CORE_API UEDU_CORE_StatusComponent : public UActorComponent
 public:
 	// Gets the entities C2 Camera
 	FORCEINLINE  TObjectPtr<AEDU_CORE_C2_Camera> GetC2Camera() const { return LocalCamera; };
-
+	
+	// Gets how long we are visible when detected
+	FORCEINLINE uint8 GetVisibilityTimer() const { return VisibilityTimer; };
+	
 	// Gets the entities Maximum Health
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; };
 	
@@ -57,17 +56,23 @@ public:
 
 	// Sets visibility for a specific team for a duration
 	void SetVisibleForTeam(EEDU_CORE_Team TeamIndex, uint8 Time = 10);
+	
+	// Gets visibility for a specific team for a duration
+	uint8 GetVisibleForTeam(EEDU_CORE_Team TeamInde) const;
+	
+	// Returns the Defence against a certain damage type 
+	float GetDefenceAgainst(EDamageType DamageType) const;
 
 	// Sets visibility for a specific team using the default duration
 	void ResetVisibilityForTeam(EEDU_CORE_Team TeamIndex);
-	
+
 //------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
 public:
 	
 	// Sets default values for this component's properties
-	UEDU_CORE_StatusComponent();
+	UStatusComponent();
 
 protected:
 
@@ -99,14 +104,22 @@ protected:
 	
 	// Max Health Pool
 	UPROPERTY(EditAnywhere, Category = "Defence | Health")
-	float MaxHealth = 0;
+	float MaxHealth = 100.f;
+
+	// The amount of Health this entity regenerates per second
+	UPROPERTY(EditAnywhere, Category = "Defence | Health")
+	float HealthRegen = 1.f;
+
+	// The amount of Health this entity degenerates per second
+	UPROPERTY(EditAnywhere, Category = "Defence | Health")
+	float HealthDegen = -1.f;
 	
 	// How many percentages of our body are protected?
 	UPROPERTY(EditAnywhere, Category = "Defence | Health", meta = (ClampMin = "0", ClampMax = "100"))
 	uint8 Coverage = 100;
 
 	// Is this unit able to dodge attacks? (Lucky)
-	UPROPERTY(EditAnywhere, Category = "Defence | Resistance")
+	UPROPERTY(EditAnywhere, Category = "Defence | Health")
 	bool bCanDodge = false;
 
 	// How large is the chance that this unit is able to doge an attack?
@@ -123,7 +136,7 @@ protected:
 
 	// Protection against kinetic energy IE padded clothing, body armor, etc.
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance", meta = (EditCondition = "!bKineticImmune"))
-	float KineticDefence = 0;
+	float KineticDefence = 0.f;
 	
 	// Immune to Cold?
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance")
@@ -131,7 +144,7 @@ protected:
 
 	// Insulation against cold.
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance", meta = (EditCondition = "!bColdImmune"))
-	float ColdResistance = 0; 
+	float ColdResistance = 0.f; 
 
 	// Immune to Fire, Flame and Heat?
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance")
@@ -139,7 +152,7 @@ protected:
 	
 	// Fire, Flame and Heat Resistance.
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance", meta = (EditCondition = "!bHeatImmune"))
-	float HeatResistance = 0;
+	float HeatResistance = 0.f;
 
 	// Immune to Electromagnetic and Particle Radiation?
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance")
@@ -147,7 +160,7 @@ protected:
 
 	// Resistance to Electromagnetic and Particle Radiation.
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance", meta = (EditCondition = "!bRadiationImmune"))
-	float RadiationResistance = 0;
+	float RadiationResistance = 0.f;
 
 	// Immune to Biological contaminants, such as bacteria, fungus and viruses?
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance")
@@ -155,7 +168,7 @@ protected:
 
 	// Resistance to Biological contaminants, such as bacteria, fungus and viruses.
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance", meta = (EditCondition = "!bBioImmune"))
-	float BiologicalResistance = 0;
+	float BiologicalResistance = 0.f;
 
 	// Immune to Corrosion, Acid and various Toxins?
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance")
@@ -163,7 +176,7 @@ protected:
 
 	// Resistance to Corrosion, Acid and various Toxins
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance", meta = (EditCondition = "!bChemImmune"))
-	float ChemicalResistance = 0;
+	float ChemicalResistance = 0.f;
 
 	// Immune to Malicious Software?
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance")
@@ -171,7 +184,7 @@ protected:
 	
 	// Resistance to Malicious Software.
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance", meta = (EditCondition = "!bMalwareImmune"))
-	float MalwareResistance = 0;
+	float MalwareResistance = 0.f;
 	
 	// Immune to Chaos?
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance")
@@ -179,8 +192,194 @@ protected:
 	
 	// Resistance to Chaotic, unkown damage, caused by unidentified source beyond human comprehension.
 	UPROPERTY(EditAnywhere, Category = "Defence | Resistance", meta = (EditCondition = "!bChaosImmune"))
-	float ChaosResistance = 0;
+	float ChaosResistance = 0.f;
 
+//--------------------------------------------------------------------------
+// Editable Data > Organic Data
+//--------------------------------------------------------------------------
+
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
+	EOrganicStatus_Physique PhysiqueStatus;
+	
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
+	EOrganicStatus_Condition ConditionStatus;
+	
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
+	EOrganicStatus_Nutrition NutritionStatus;
+	
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
+	EOrganicStatus_Hydration HydrationStatus;
+	
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
+	EOrganicStatus_Endurance EnduranceStatus;
+	
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
+	EOrganicStatus_Mental MentalStatus;
+	
+	//-------------------------------------------------------------------
+	// Physique: The body’s physical structure, build, and composition.
+	//-------------------------------------------------------------------
+	
+	// The Maximum Physique when healthy
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Physique")
+	float MaxPhysique = 100.f;
+
+	// Flat Physice Damage caused by a Condition
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Physique")
+	float PhysiqueDamage = 0.f;
+	
+	// The Maximum Physique when effected by a Condition
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Physique")
+	float CappedPhysique = MaxPhysique - PhysiqueDamage;
+	
+	// Our Current Physique
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Physique")
+	float CurrentPhysique = CappedPhysique;
+
+	// The bodys the ability to heal injured cells
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Physique")
+	float PhysiqueRegen = 0.f;
+
+	// Damage over Time (DoT) due to injury
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Physique")
+	float PhysiqueDegen = 0.f;
+	
+	//--------------------------------------------------------------
+	// Condition: Illness, Disease, Affliction
+	//--------------------------------------------------------------
+	
+	// The Maximum Condition when healthy
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Condition")
+	float MaxCondition = 10.f;
+
+	// Flat Condition Damage caused by a Condition
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Condition")
+	float ConditionDamage = 0.f;
+	
+	// The Maximum Condition when effected by a Condition
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Condition")
+	float CappedCondition = MaxCondition - CappedCondition;
+
+	// Our Current Condition
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Condition")
+	float CurrentCondition = CappedCondition;
+
+	// The body's ability to combat Disease
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Condition")
+	float ConditionRegen = 0.f;
+
+	// Damage over Time (DoT) due to Illness
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Condition")
+	float ConditionDegen = 0.f;
+
+	//--------------------------------------------------------------
+	// Sustinance: Nutrition and Hydration
+	//--------------------------------------------------------------
+
+	// The Maximum Hydration and Nutrition the body can hold
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Sustinance")
+	float MaxSustinance = 10.f;
+
+	// Flat Condition Damage caused by a Condition
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Sustinance")
+	float SustinanceDamage = 0.f;
+	
+	// The Maximum Hydration and Nutrition the body can hold when effected by a Condition
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Sustinance")
+	float CappedSustinance = MaxSustinance - SustinanceDamage;
+
+	// Our Current Condition
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Sustinance")
+	float CurrentSustinance = CappedSustinance;
+
+	//----------------
+	// Nutrition
+	//----------------
+	
+	// How many Calories the body can hold
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Sustinance | Nutrition")
+	float MaxNutrition = MaxSustinance / 2.f;
+	
+	// How many Calories the body havs available for 
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Sustinance | Nutrition")
+	float CurrentNutrition = MaxNutrition;
+
+	// The body's ability to digest Nutrition
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Sustinance | Nutrition")
+	float NutritionRegen = 0.f;
+	
+	// How fast the Body is burning Calories
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Sustinance | Nutrition")
+	float NutritionDegen = 0.f;
+
+	//----------------
+	// Hydration
+	//----------------
+	
+	// How mych Water the body can hold
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Sustinance | Hydration")
+	float MaxHydration = MaxSustinance / 2.f;
+	
+	// How Water the body has available for digestion
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Sustinance | Hydration")
+	float CurrentHydration = MaxHydration;
+	
+	// The body's ability to digest water
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Sustinance | Hydration")
+	float HydrationRegen = 0.f;
+
+	// How fast the Body is losing water
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Sustinance | Hydration")
+	float HydrationDegen = 0.f;
+	
+	//--------------------------------------------------------------
+	// Endurance: The ability to produce and consume energy
+	//--------------------------------------------------------------
+
+	// The Maximum Endurance when healthy
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Endurance")
+	float MaxEndurance = 10.f;
+
+	// Flat Condition Damage caused by a Condition
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Endurance")
+	float EnduranceDamage = 0.f;
+
+	// The Maximum Endurance when effected by a Condition
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Endurance")
+	float CappedEndurance = MaxEndurance - EnduranceDamage;
+
+	// Our Current Condition
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Endurance")
+	float CurrentEndurance = CappedEndurance;
+	
+	// The body's ability to digest water
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Endurance")
+	float EnduranceRegen = 0.f;
+
+	// How fast the Body is losing water
+	UPROPERTY(EditAnywhere, Category = "Organic Data | Endurance")
+	float EnduranceDegen = 0.f;
+
+	//--------------------------------------------------------------
+	// Mental State
+	//--------------------------------------------------------------
+	
+	// Current Mental State, based of all factors.
+	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Mental State")
+	float CurrentMentalState = 1.f;
+	
+//--------------------------------------------------------------------------
+// Editable Data > Veterancy
+//--------------------------------------------------------------------------
+protected:
+	
+	UPROPERTY(EditAnywhere, Category = "Veterancy")
+	float MaxLevel = 0;
+	
+	// Resistance to Chaotic, unkown damage, caused by unidentified source beyond human comprehension.
+	UPROPERTY(EditAnywhere, Category = "Veterancy")
+	float CurrentLevel = 0;
+	
 //--------------------------------------------------------------------------
 // Editable Data > Defense > Visibility
 //--------------------------------------------------------------------------
@@ -289,7 +488,7 @@ protected:
 	
 	// Pointer to owning Actor
 	UPROPERTY()
-	AActor* Owner = GetOwner();
+	TObjectPtr<AActor> Owner = GetOwner();
 	
 	// Pointer to GameMode for easy access to Team Arrays
 	UPROPERTY()
@@ -302,6 +501,11 @@ protected:
 	// Pointer to the Camera we are using
 	UPROPERTY()
 	TObjectPtr<AEDU_CORE_C2_Camera> LocalCamera;
+
+	// All Organic Conditions this entity is suffering from
+	UPROPERTY(EditAnywhere, Category = "Status")
+	TSet<FOrganicCondition> OrganicConditionSet;
+	
 	
 //--------------------------------------------------------------------------
 // Functionality > Damage Handling
@@ -316,8 +520,26 @@ protected:
 	// Calculate Damage dealt based of protection and penetration.
 	UFUNCTION()
 	float CalculateDamage(const float EffectiveDamage, float PenetrationPercentage, float& Protection, const float ProtectionRatio = 1.f) const;
+	
+//--------------------------------------------------------------------------
+// Functionality > Conditions & Traits
+//--------------------------------------------------------------------------
+protected:
 
+	// Adds a Status Condition from the Condition Library, initiating it on the fly.
+	UFUNCTION()
+	void AddOrganicCondition(const EOrganicConditions Condition);
+	
+	// Removes a Status Condition from the OrganicConditionSet, and removing harmful effect.
+	UFUNCTION()
+	void RemoveOrganicCondition(const EOrganicConditions Condition);
 
+//--------------------------------------------------------------------------
+// Functionality > Organic Calculations
+//--------------------------------------------------------------------------
+
+	void CalculateOrganicStatus();
+	
 //--------------------------------------------------------------------------
 // Functionality > Utility
 //--------------------------------------------------------------------------

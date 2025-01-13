@@ -5,7 +5,8 @@
 #include "CoreMinimal.h"
 #include "EDU_CORE_SelectableEntity.generated.h"
 
-class UEDU_CORE_StatusComponent;
+class UStatusComponent;
+class UEngagementComponent;
 
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
@@ -31,35 +32,12 @@ public:
 //---------------------------------------------------------------
 // Get/Set
 //--------------------------------------------------------------
-	
-	FORCEINLINE TObjectPtr<UEDU_CORE_StatusComponent> GetStatusComponent() const { return StatusComponent; };
-
-//------------------------------------------------------------------------------
-// Functionality
-//------------------------------------------------------------------------------
 public:
-	/*-------------------------------------------------------------------------------------
-	  Highlighting and Selection are triggered by
-	  - PlayerController::CursorTrace()
-		  The playerController will trigger MouseHighlightActor on MouseHover.
-	  - HUD::DrawHUD()
-		  The playerController will trigger Highlight on all entities in Drawn Rectangle.
-	  - CameraPawn::Input_Mouse_1_Released
-		  The CameraPawn will select all entities in Drawn Rectangle on Mouse_1_Released.
-	-------------------------------------------------------------------------------------*/
-
-	virtual void MouseHighlightActor();
-	virtual void MouseUnHighlightActor();
 	
-	virtual void RectangleHighlightActor();
-	virtual void UnRectangleHighlightActor();
+	FORCEINLINE TObjectPtr<UStatusComponent> GetStatusComponent() const { return StatusComponent; };
+
+	FORCEINLINE TObjectPtr<UEngagementComponent> GetEngagementComponent() const { return EngagementComponent; };
 	
-	virtual void SelectActor();
-	virtual void UnSelectActor();
-
-	virtual void SetGUID(FGuid NewID) { ServerEntityID = NewID; };
-	virtual FGuid GetGUID() { return ServerEntityID; };
-
 //------------------------------------------------------------------------------
 // Networking
 //------------------------------------------------------------------------------
@@ -89,7 +67,39 @@ public:
 	bool bSelected = false;
 
 protected:
-	// Pointer to a StatusComponent (if we have one)
+	// Pointer to our StatusComponent (if we have one)
 	UPROPERTY()
-	TObjectPtr<UEDU_CORE_StatusComponent> StatusComponent = nullptr;
+	TObjectPtr<UStatusComponent> StatusComponent = nullptr;
+	
+	// Pointer to our EngagementComponent (if we have one)
+	UPROPERTY()
+	TObjectPtr<UEngagementComponent> EngagementComponent = nullptr;
+
+	
+//------------------------------------------------------------------------------
+// Functionality
+//------------------------------------------------------------------------------
+public:
+	/*-------------------------------------------------------------------------------------
+	  Highlighting and Selection are triggered by
+	  - PlayerController::CursorTrace()
+		  The playerController will trigger MouseHighlightActor on MouseHover.
+	  - HUD::DrawHUD()
+		  The playerController will trigger Highlight on all entities in Drawn Rectangle.
+	  - CameraPawn::Input_Mouse_1_Released
+		  The CameraPawn will select all entities in Drawn Rectangle on Mouse_1_Released.
+	-------------------------------------------------------------------------------------*/
+
+	virtual void MouseHighlightActor();
+	virtual void MouseUnHighlightActor();
+	
+	virtual void RectangleHighlightActor();
+	virtual void UnRectangleHighlightActor();
+	
+	virtual void SelectActor();
+	virtual void UnSelectActor();
+
+	virtual void SetGUID(FGuid NewID) { ServerEntityID = NewID; };
+	virtual FGuid GetGUID() { return ServerEntityID; };
+
 };

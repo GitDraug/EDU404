@@ -2,28 +2,29 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "Components/SceneComponent.h"
+// CORE
 #include "Framework/Data/DataTypes/EDU_CORE_DataTypes.h"
 
 // UE
+#include "CoreMinimal.h"
 #include "Engine/OverlapResult.h"
 
 // THIS
-#include "EDU_CORE_SenseComponent.generated.h"
+#include "SenseComponent.generated.h"
 
-class USceneComponent;
 class AEDU_CORE_GameMode;
-class UEDU_CORE_StatusComponent;
+class UStatusComponent;
 class AEDU_CORE_SelectableEntity;
+class UTurretWeaponComponent;
 
 
 /*------------------------------------------------------------------------------
   Sight component
 --------------------------------------------------------------------------------
-  Used to detect the presence of another actor. Each SenseComponent
-  acts as a separate sensor; therefore, settings should not be configured in
-  the StatusComponent but in each SenseComponent separately.
+  Used to detect the presence of another actor.
+
+  Each SenseComponent acts as a separate sensor; therefore, settings should not
+  be configured in the StatusComponent but in each SenseComponent separately.
 ------------------------------------------------------------------------------*/
 
 // Enum for different kinds of vision cones
@@ -48,7 +49,7 @@ enum class EFSenseType : uint8
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class EDU_CORE_API UEDU_CORE_SenseComponent : public USceneComponent
+class EDU_CORE_API USenseComponent : public UActorComponent
 {
 	GENERATED_BODY()
 	
@@ -57,7 +58,7 @@ class EDU_CORE_API UEDU_CORE_SenseComponent : public USceneComponent
 //------------------------------------------------------------------------------
 public:
 	// Sets default values for this component's properties
-	UEDU_CORE_SenseComponent();
+	USenseComponent();
 
 protected:
 
@@ -91,8 +92,7 @@ protected:
 	// Issued by GameMode for time sliced tick
 	UPROPERTY(VisibleAnywhere)
 	int32 BatchIndex = 0;
-
-
+	
 //------------------------------------------------------------------------------
 // Editable Data: General
 //------------------------------------------------------------------------------
@@ -104,6 +104,19 @@ public:
 	// What kind of Sense/Sensor is this component?
 	UPROPERTY(EditAnywhere)
 	EFSenseType SenseType = EFSenseType::ESense_Sight;
+
+	// Name of the Turret that acts as a mount for this component.
+	// If left empty, the SenseComponent will attach to the RootComponent.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bAttachedToTurret = false;
+	
+	// Name of the Turret that acts as a mount for this component.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bAttachedToMount", EditConditionHides))
+	FString TurretName = "";
+	
+	// Rotation and Location relative to whatever the Component is attached to.
+	UPROPERTY(EditAnywhere)
+	FTransform RelativeTransform;
 
 //------------------------------------------------------------------------------
 // Editable Data: Sight
@@ -138,7 +151,7 @@ public:
 	bool bDrawSightDebugLine = false;
 
 //------------------------------------------------------------------------------
-// Editable Data: Hearning
+// Editable Data: Hearing
 //------------------------------------------------------------------------------
 public:
 
@@ -170,18 +183,25 @@ protected:
 	// Pointer to owning Actor
 	UPROPERTY()
 	AActor* Owner = GetOwner();
-
-	// Temp Array for for DetectActorsInFOV()
+	
 	UPROPERTY()
-	TArray<FOverlapResult> SensedActorsArray;
-
+	TObjectPtr<UTurretWeaponComponent> Parent;
+	
 	// Pointer to GameMode for easy access to Team Arrays
 	UPROPERTY()
 	TObjectPtr<AEDU_CORE_GameMode> GameMode = nullptr;
 	
 	// Pointer to StatusComponent
 	UPROPERTY()
-	TObjectPtr<UEDU_CORE_StatusComponent> StatusComponent = nullptr;
+	TObjectPtr<UStatusComponent> StatusComponent = nullptr;
+
+	// Cached ParentTransform for batched update
+	UPROPERTY()
+	FTransform PreviousParentTransform;
+
+	// Temp Array for for DetectActorsInFOV()
+	UPROPERTY(VisibleAnywhere)
+	TArray<FOverlapResult> SensedActorsArray;
 	
 //------------------------------------------------------------------------------
 // Functionality
@@ -201,7 +221,7 @@ protected:
 	bool GetVisualConfirmation(const FVector& EndLocation, const AActor* ActorToConfirm) const;
 	
 	//
-	void SetEntityTeamVisibility(AEDU_CORE_SelectableEntity* SelectableEntity, EEDU_CORE_Team OurTeam, UEDU_CORE_StatusComponent* TargetStatusComponent) const;
+	void SetEntityTeamVisibility(AEDU_CORE_SelectableEntity* SelectableEntity, EEDU_CORE_Team OurTeam, UStatusComponent* TargetStatusComponent) const;
 
 
 	

@@ -24,6 +24,7 @@
 // Used by the Field of Vision Boxtrace in the Sight Component
 #define TRACE_CHANNEL_FOVBOX		TraceTypeQuery2
 
+
 /*------------------------- Input: Modifier Keys ---------------------------------
   This Enums keeps track of the active mod key, or active combo of mod keys
   in the CameraPawn. This means that any class can review this enum to se what
@@ -194,3 +195,319 @@ struct FWaypointParams
 	bool CursorAlignment = false;
 };
 
+/*--------------------------- Weapons & Damage -----------------------------------
+  To deal and take damage.
+--------------------------------------------------------------------------------*/
+
+// Enum for different damage types
+UENUM(BlueprintType) // Allow this enum to be used in Blueprints
+enum class EDamageType : uint8
+{
+	EDT_None			UMETA(DisplayName = "None"),
+
+	// All physical force is kinetic, including shockwaves.
+	EDT_Kinetic			UMETA(DisplayName = "Kinetic"),
+
+	// Hazardouly low temperature caused by exposure to cold materials/chemicals or weather.
+	EDT_Cold			UMETA(DisplayName = "Cold"),
+
+	// Hazardouly high temperature, caused by exposure to hot materials/chemicals, fire, plasma or weather.
+	EDT_Heat			UMETA(DisplayName = "Heat"),
+
+	// Transmission of energy in the form of waves or particles through space or a medium.
+	EDT_Radiation		UMETA(DisplayName = "Radiation"),
+
+	// Biological agents, such as viruses, bacteria or fungus.
+	EDT_Biological		UMETA(DisplayName = "Biological"),
+
+	// Harmful chemical reactions caused by poisons and toxins or other agents.
+	EDT_Chemical		UMETA(DisplayName = "Chemical"),
+
+	// Caused by malicious software attacks or force or energy that causes software runtimes to glitch.
+	EDT_Malware			UMETA(DisplayName = "Malware"),
+	
+	// Abstract or supernatural damage such as cosmic, void, distortion or unkown).
+	EDT_Chaos			UMETA(DisplayName = "Chaos"),
+	
+	EDT_Max				UMETA(Hidden)
+};
+
+class AProjectileBase;
+class UTurretWeaponComponent;
+USTRUCT(BlueprintType)
+struct FProjectileWeaponInformation
+{
+	GENERATED_BODY()
+	
+	// The ID this Weapon
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "Characteristics")
+	FGuid WeaponID = FGuid::NewGuid();
+
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Characteristics")
+	FString WeaponName = "";
+	
+	// The owning Actor of this Weapon
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "Characteristics")
+	TObjectPtr<AActor> OwningActor = nullptr;
+	
+	// The owning Turret of this Weapon (if attached to a Turret)
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "Characteristics")
+	TObjectPtr<UTurretWeaponComponent> OwningTurret = nullptr;
+
+	// The Mount Array Index of this weapon
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "Characteristics")
+	int32 WeaponArrayIndex = 0;
+
+	// Allows this weapon to fire simultaneously with others.
+	// UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "Characteristics")
+	// bool ParallelBarrel = true;
+	
+	// How much offset does this weapon have from the Owner's center?
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
+	FVector BarrelOffset = FVector::ZeroVector;
+	
+	// What kind of projectile does this weapon fire?
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
+	TSubclassOf<AProjectileBase> ProjectileClass = nullptr;
+
+	// A burst is a controlled sequence of shots before releasing the trigger.
+	// A Rifleman will usually fire a single shot at a time, while a Machinegunner will first burst of 10-15 bullets before a short delay.
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
+	float BurstSize = 1.f;
+	
+	// How fast does this weapon cycle between shots within a burst?
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
+	float CycleRate = 0.2f;
+
+	// How long before the next burst?
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
+	float BurstDelay = 1.f;
+
+	// How inacurate (cm) is this weapon (regardles of distance) while still?
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
+	float Inaccuracy  = 0.f;
+	
+	// How inacurate (cm) is this weapon (regardles of distance) while moving?
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
+	float MovingInaccuracy  = 0.f;
+	
+	// The Maximum Amount of Ammunition this Weapon can carry.
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Ammo")
+	int32 MaxAmmo = 0.f;
+	
+	// The Amount of Ammunition this Weapon currently has.
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Ammo")
+	int32 CurrentAmmo = 0.f;
+	
+	// The Primary Damage Type this weapon inflicts on Impact.
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Damage")
+	TMap<EDamageType, float> DamageTypeAndAmount;
+
+	// What percentage of energy is designed to penetrate armor?
+	// 90% would imply the weapon's energy penetrates solid objects with ease, similar to gamma rays.
+	// 100% would imply the damage phases through the armor similar to God-Rei in Evangelion.
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Damage")
+	float Penetration = 0.f;
+	
+	// Area of Effect (splash) Radius of both damage types
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Damage")
+	float AreaOfEffectRadius = 0.f;
+	
+	// Does this weapon charge before firing?
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
+	float ChargeDelay  = 0.f;
+
+	// Minimum Distance to Target for this wepaon to fire.
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
+	float MinDistance = 0.f;
+	
+	// Maximum Distance to Target for this wepaon to fire.
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
+	float MaxDistance = 0.f;
+
+	// Define equality operator to evaluate Weapon Uniqueness
+	bool operator==(const FProjectileWeaponInformation& Other) const
+	{
+		return WeaponID == Other.WeaponID;
+	}
+	
+	// Define GetTypeHash for Uniqueness
+	friend uint32 GetTypeHash(const FProjectileWeaponInformation& Info)
+	{
+		return GetTypeHash(Info.WeaponID);
+	}
+	
+};
+
+/*------------------------- Conditions & Traits ---------------------------------
+  Organic Status
+--------------------------------------------------------------------------------*/
+
+UENUM()
+enum class EOrganicStatus_Physique : uint8
+{
+	Unknown				UMETA(DisplayName = "Unknown"),
+	Unconscious			UMETA(DisplayName = "Unconscious"),
+	Wounded				UMETA(DisplayName = "Wounded"),
+	Injured				UMETA(DisplayName = "Injured"),
+	InPain				UMETA(DisplayName = "InPain"),
+	Grazed				UMETA(DisplayName = "Grazed"),
+	Solid				UMETA(DisplayName = "Solid"),
+	
+};
+
+UENUM()
+enum class EOrganicStatus_Condition : uint8
+{
+	Unknown				UMETA(DisplayName = "Unknown"),
+	Unconscious			UMETA(DisplayName = "Unconscious"),
+	Sick				UMETA(DisplayName = "Sick"),
+	Feverish			UMETA(DisplayName = "Feverish"),
+	Nauseous			UMETA(DisplayName = "Nauseous"),
+	Discomforted		UMETA(DisplayName = "Discomforted"),
+	Alert				UMETA(DisplayName = "Alert"),
+	
+};
+
+UENUM()
+enum class EOrganicStatus_Nutrition : uint8
+{
+	Unknown				UMETA(DisplayName = "Unknown"),
+	Unconscious			UMETA(DisplayName = "Unconscious"),
+	Starving			UMETA(DisplayName = "Starving"),
+	Famished			UMETA(DisplayName = "Famished"),
+	VeryHungry			UMETA(DisplayName = "Very Hungry"),
+	Hungry				UMETA(DisplayName = "Hungry"),
+	Satiated			UMETA(DisplayName = "Satiated"),
+	
+};
+
+UENUM()
+enum class EOrganicStatus_Hydration : uint8
+{
+	Unknown				UMETA(DisplayName = "Unknown"),
+	Unconscious			UMETA(DisplayName = "Unconscious"),
+	DesperateForWater	UMETA(DisplayName = "Desperate for Water"),
+	Dehydrated			UMETA(DisplayName = "Dehydrated"),
+	VeryThirsty			UMETA(DisplayName = "Very Thirsty"),
+	Thirsty				UMETA(DisplayName = "Thirsty"),
+	Satiated			UMETA(DisplayName = "Satiated"),
+	
+};
+
+UENUM()
+enum class EOrganicStatus_Endurance : uint8
+{
+	Unknown				UMETA(DisplayName = "Unknown"),
+	Unconscious			UMETA(DisplayName = "Unconscious"),
+	Exhausted			UMETA(DisplayName = "Exhausted"),
+	Tired				UMETA(DisplayName = "Tired"),
+	Winded				UMETA(DisplayName = "Winded"),
+	Warmedup			UMETA(DisplayName = "Warmed up"),
+	Rested				UMETA(DisplayName = "Rested"),
+	
+};
+
+UENUM()
+enum class EOrganicStatus_Mental : uint8
+{
+	Unknown				UMETA(DisplayName = "Unknown"),
+	Unconscious			UMETA(DisplayName = "Unconscious"),
+	Panicked			UMETA(DisplayName = "Panicked"),
+	Scared				UMETA(DisplayName = "Scared"),
+	Shaken				UMETA(DisplayName = "Shaken"),
+	Stressed			UMETA(DisplayName = "Stressed"),
+	Steady				UMETA(DisplayName = "Steady"),
+	
+};
+
+/*------------------------- Conditions & Traits ---------------------------------
+  Sickness and Health
+--------------------------------------------------------------------------------*/
+
+USTRUCT(BlueprintType)
+struct FOrganicCondition
+{
+	GENERATED_BODY()
+	//--------------------------------------------------------------------------------------
+	// Description
+	//--------------------------------------------------------------------------------------
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Name = "";
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Description = "";
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Severity = "";
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Treatment = "";
+	
+	//--------------------------------------------------------------------------------------
+	// Regen / Degen
+	//--------------------------------------------------------------------------------------
+
+	// Physical
+	UPROPERTY()
+	float PhysDegen = 0.f;
+
+	UPROPERTY()
+	float CondDegen = 0.f;
+
+	// Sustinance
+	UPROPERTY()
+	float HydroDegen = 0.f;
+
+	UPROPERTY()
+	float NutrDegen = 0.f;
+
+		
+	//--------------------------------------------------------------------------------------
+	// Flat Damage
+	//--------------------------------------------------------------------------------------
+	
+	UPROPERTY()
+	float PhysDamage = 0.f;
+
+	UPROPERTY()
+	float CondDamage = 0.f;
+	
+	UPROPERTY()
+	float EnduDamage = 0.f;
+
+	UPROPERTY()
+	float SustDamage = 0.f;
+
+	// Define the custom hash function for TSet
+	friend uint32 GetTypeHash(const FOrganicCondition& Condition)
+	{
+		uint32 Hash = 0;
+
+		// Combine the hashes of the relevant fields of the struct
+		Hash = HashCombine(Hash, GetTypeHash(Condition.Name));
+		Hash = HashCombine(Hash, GetTypeHash(Condition.Description));
+		Hash = HashCombine(Hash, GetTypeHash(Condition.Severity));
+		Hash = HashCombine(Hash, GetTypeHash(Condition.Treatment));
+		
+		Hash = HashCombine(Hash, GetTypeHash(Condition.PhysDegen));
+		Hash = HashCombine(Hash, GetTypeHash(Condition.CondDegen));
+		Hash = HashCombine(Hash, GetTypeHash(Condition.HydroDegen));
+		Hash = HashCombine(Hash, GetTypeHash(Condition.NutrDegen));
+
+		Hash = HashCombine(Hash, GetTypeHash(Condition.PhysDamage));
+		Hash = HashCombine(Hash, GetTypeHash(Condition.CondDamage));
+		Hash = HashCombine(Hash, GetTypeHash(Condition.EnduDamage));
+		Hash = HashCombine(Hash, GetTypeHash(Condition.SustDamage));
+
+		return Hash;
+	}
+	
+	// Overloaded == operator to compare each field for equality.
+	bool operator==(const FOrganicCondition& Other) const = default;
+	bool operator!=(const FOrganicCondition& Other) const
+	{
+		return !(*this == Other);  // Calls the == operator
+	}
+};

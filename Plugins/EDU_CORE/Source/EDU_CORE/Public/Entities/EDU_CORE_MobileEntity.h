@@ -7,6 +7,7 @@
 #include "Interfaces/EDU_CORE_CommandInterface.h"
 #include "EDU_CORE_MobileEntity.generated.h"
 
+class AEDU_CORE_SelectableEntity;
 class EDU_CORE_DataTypes;
 class AEDU_CORE_Waypoint;
 class AEDU_CORE_Waypoint_Move;
@@ -36,7 +37,9 @@ enum class EMovementType : uint8
 	// Can move forward and backward, and rotate around its center whether moving or not.
 		CenterRotates		UMETA(DisplayName = "Bi-Directional with Center Rotation"),
 	// Can move in all directions, and rotate around its center whether moving or not.
-		OmniDirectional    UMETA(DisplayName = "Omni-Directional")	
+		OmniDirectional		UMETA(DisplayName = "Omni-Directional"),
+	// Hidden max value for internal use only.
+		MAX					UMETA(Hidden)
 };
 
 UENUM()
@@ -52,6 +55,23 @@ enum class EMovementOrder : uint8
 		Park			UMETA(DisplayName = "Park"),
 	// Never Move, not for anything.
 		HoldPosition	UMETA(DisplayName = "Hold Position"),
+	// Hidden max value for internal use only.
+		MAX				UMETA(Hidden)
+};
+
+UENUM(BlueprintType)
+enum class ERotationMode : uint8
+{
+	// Applies Angular Velocity in the local Z-axis (For normal units)
+	LocalYaw     UMETA(DisplayName = "Local Yaw"),
+
+	// Applies Angular Velocity in the World Z-axis.
+	// Used for entities like hovercrafts, drones, and gunships that 
+	// always turn horizontally, regardless of their pitch and rotation.
+	WorldYaw     UMETA(DisplayName = "World Yaw"),
+	
+	// Hidden max value for internal use only.
+	MAX			UMETA(Hidden)
 };
 
 UCLASS()
@@ -69,13 +89,14 @@ protected:
 // Aggregated Server tick
 //------------------------------------------------------------------------------
 public:
+	// Concurrence; Running 0.75/sec
 	virtual void ServerMobileBatchedCalc();
-	
-	virtual void ServerMobileCalc(float DeltaTime, int32 CurrentBatchIndex);
-	virtual void ServerMobileExec(float DeltaTime, int32 CurrentBatchIndex);
 
-	// Fixed Physics Tick for calculations dependent on the physics thread
-	virtual void AsyncPhysicsTickActor(float DeltaTime, float SimTime) override;
+	// Concurrence; Running 1/frame
+	virtual void ServerMobileCalc(float DeltaTime, int32 CurrentBatchIndex);
+
+	// Gamethread; Running 1/frame
+	virtual void ServerMobileExec(float DeltaTime, int32 CurrentBatchIndex);
 	
 //------------------------------------------------------------------------------
 // Public API
@@ -86,7 +107,7 @@ public:
 	virtual void RemoveWaypoint(AEDU_CORE_Waypoint* Waypoint) override;
 	virtual void ClearAllWaypoints();
 
-	// Waypoint need to update listeners about FormationLocation whenever an entity leaves the formation.
+	// Waypoint needs to update listeners about FormationLocation whenever an entity leaves the formation.
 	virtual void UpdateFormationLocation(const FVector WaypointLocation, FRotator WaypointRotation, FVector WaypointForwardVector, FVector WaypointRightVector, int32 FormationIndex);
 
 	// Get Batch Index from GameMode
@@ -94,6 +115,15 @@ public:
 	
 	// In Case anyone needs our Array.
 	const virtual TArray<AEDU_CORE_Waypoint*>& GetWaypointArray() { return WaypointArray; }
+
+	// Set if this Entity should align with target, necessary with fixed weapons that needs manual aiming.
+	virtual void SetAlignWithTarget(bool ShouldAlignWithTarget = false) { bShouldAlignWithTarget = ShouldAlignWithTarget; };
+	
+	// Set if this Entity should align with target, necessary with fixed weapons that needs manual aiming.
+	virtual void SetTargetActor(AEDU_CORE_SelectableEntity* InTargetEntity = nullptr) { TargetEntity = InTargetEntity; };
+
+	// Set if this Entity should align with target, necessary with fixed weapons that needs manual aiming.
+	virtual void SetTargetPosition(const FVector& InTargetPos) { TargetPosition = InTargetPos; };
 	
 //------------------------------------------------------------------------------
 // Components: Waypoints & Navigation
@@ -106,10 +136,6 @@ protected:
 	UPROPERTY()
 	TArray<TObjectPtr<AEDU_CORE_Waypoint>> WaypointArray;
 
-	// If we save this, we'll need to reset it manually all the time.
-	// UPROPERTY()
-	// TObjectPtr<UNavigationPath> NavPath;
-	
 	UPROPERTY()
 	TObjectPtr<UNavigationSystemV1> NavSystem;
 	
@@ -118,7 +144,6 @@ protected:
 	TArray<FVector> NavPointArray;
 
 	// Relocate Position in case we need to evade something
-	UPROPERTY()
 	FVector EvadePoint;
 
 	// Place in formation
@@ -139,9 +164,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Physics")
 	TObjectPtr<UPhysicalMaterial>PhysicalMaterial;
 
-	// Collision Sphere used for Dynamic Collision Avoidance
-	TObjectPtr<USphereComponent>DynamicCollisionSphere = nullptr;
-
 	// Current Order
 	EMovementOrder MovementOrder;
 
@@ -157,20 +179,22 @@ protected:
 	// How does this entity move?
 	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
 	EMovementType MovementType;
+
+	// How does this entity Rotate?
+	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
+	ERotationMode RotationMode;
 	
 	// Can this entity go backwards?.
 	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
 	bool bCanReverse = true;
 
-	// Do we only want to do Yaw turns?
-	// Relevant for hovercrafts, drones, gunships and other flying
-	// objects that always turn horizontal despite their pitch and rotation.
-	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
-	bool bYawTurnsOnly = false;
-
 	// Do wee need a surface to move on?
 	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
 	bool bMovesOnSurface = true;
+
+	// Should this Entity align with target? Attached FixedWeaponComponents that needs manual aiming will set this to true.
+	UPROPERTY(VisibleAnywhere, Category = "Movement | Characteristics")
+	bool bShouldAlignWithTarget = false;
 
 	// Can this entity climb surfaces more steep than 40 degrees?
 	UPROPERTY(EditAnywhere, Category = "Movement | Characteristics")
@@ -296,6 +320,16 @@ protected:
 	// Scale factor to apply to height of bounds when searching for navmesh to project to when nav walking.
 	UPROPERTY(EditAnywhere, Category = "Movement | Navigation")
 	float NavWalkingSearchHeightScale = 0.5f;
+
+	//---------------------------------------------
+	// TargetData
+	//---------------------------------------------
+
+	UPROPERTY(VisibleAnywhere, Category = "Target")
+	TObjectPtr<AEDU_CORE_SelectableEntity> TargetEntity = nullptr;
+
+	UPROPERTY(VisibleAnywhere, Category = "Target")
+	FVector TargetPosition = FVector::ZeroVector;
 	
 	//---------------------------------------------
 	// Time sliced tick
@@ -312,20 +346,23 @@ protected:
 	// Location of the next NavPoint, retrieved from the navigation system.
 	FVector NavPointLocation;
 
+	// Omni-Directional beings always move directly to target, they don't need to align.
+	FVector OmniDirectionalVector;
+
 	// checks if we have ground friction
 	bool bIsOnSurface;
 
 	// Saved location, in case we clip through the landscape
 	FVector LastValidLocation;
 
+	// For saving location within intervals.
+	uint8 LastValidLocationTimer;
+	
 	// Retrieved from the UnrealWorld(Level)
 	FVector CurrentSpeedVector;
 
 	// Actor position saved from the last frame
 	FVector LastPos;
-
-	// Used if the entity is moved against its will
-	FVector DesignatedPos;
 
 	// Measured by measuring the distance between CurrentPos and LastPos
 	float ActualSpeed;
@@ -351,9 +388,6 @@ protected:
 	// Accumulated force over time.
 	float ForceOutput;
 	
-	// 3D Vector caused by the entities own force.
-	FVector EntityForwardVector;
-	
 	// Desired sum of X + Y + Z velocity.
 	float DesiredSpeed = 0.f;
 
@@ -365,25 +399,29 @@ protected:
 	//---------------------------------------------
 	float TurnRate = 0.f;
 	
-	float FrictionCompensation;
-	
-	float RotationSpeed;
-	
 	bool bCheckAlignment = false;
 	bool bShouldAlign = false;
+
+	FVector Torque = FVector::ZeroVector;
 	
-	FVector Torque;
+	// Debug
+	float debug_RotationSpeed;
+	float debug_LastRotationDifference;
 
-	FRotator AlignEndRotation;
-	FRotator AlignStartRotation;
-	FRotator AlignRotationDistance;
+	float debug_AlignStartRotation;
+	float debug_AlignEndRotation;
+	
+	float debug_RotationDifference;
+	float debug_InverseRotationDifference;
+	
+	float debug_RawAlignRotationDistance;
+	float debug_InverseRawRotationDifference;
 
-	// How far we need to turn (Always positive)
-	float TurnDistance;
+	float debug_FastestTurnRate;
+	float debug_TurnFrictionCompensation;
 
-	// The difference in rotation to target (Can be Negative)
-	float RotationDifference;
-	float LastRotationDifference;
+	bool debug_bRuntimer;
+	float debug_DebugTimer;
 	
 	//---------------------------------------------
 	// CollisionAvoidance
@@ -392,17 +430,22 @@ protected:
 	bool bShouldEvade;
 	bool bShouldEvadeLeft;
 
-	// Predicts future (0.5 second) position.
-	FVector MovementVector;
-
+	//---------------------------------------------
 	// GroundCheck
+	//---------------------------------------------
+
+	// the sice of our collisionbox
 	FVector BoxExtent;
+
+	// Alows us to alternate our groundcheck to systematically cover the entire surface area
 	bool bGroundAlter;
 	
 //------------------------------------------------------------------------------
 // Physics Movement
 //------------------------------------------------------------------------------
 protected:
+
+	// Adjust speed to desired speed
 	void AdjustSpeed();
 
 	// Align the actor to a target position over time.
@@ -412,6 +455,7 @@ protected:
 // AI Functionality
 //------------------------------------------------------------------------------
 protected:
+	
 	// Get the first waypoint in the store WaypointArray and retrieve its orders.
 	virtual void RetrieveWaypointOrders();
 
@@ -425,42 +469,34 @@ protected:
 // Functionality: Utility
 //------------------------------------------------------------------------------
 protected:
-	// See if there is anything under us to drive on.
-	bool OnSurface();
+	
+	// See if there is anything under us to move on.
+	bool OnSurface(const FVector& CurrentPos);
 	
 	// Check our Alignment to target
-	void CheckAlignment();
+	void CheckAlignment(const FRotator& CurrentPos);
+
+	// Helper function for CheckAlignment() - checks if we should reverse.
+	void CheckReversalConditions(const float RotationDistance);
 
 	// Check if we are where we're supposed to be, especially when parked.
-	void CheckPosition();
+	void CheckPosition(const FVector& CurrentPos);
 	
-	// TurnRate calculation for Align().
-	void DetermineTurnSpeed();
-
 	// Fetch velocity vector once per tick and cache it
 	void CalculateCurrentSpeed(const FVector& Vector, float DeltaTime);
 
 	// Calculates distance to target
 	float CalculateDistance(const FVector& CurrentPos) const;
-
-	// Checks if we should reverse
-	void CheckReversalConditions();
-
+	
 	// Checks speed and position
 	void HandleNavigation();
 
 	// Aligns and comes to controlled stop
-	void HandleParking();
+	void HandleParking(const FRotator& CurrentPos);
 	
 //------------------------------------------------------------------------------
 // Functionality: Collision avoidance
 //------------------------------------------------------------------------------
-
-	// Crates a Collision Sphere that other entities check against
-	void CreateCollisionSphere();
-
-	// Updates the Collision Sphere with future position
-	void UpdateCollisionSphere(const FVector& CollisionSpherePosition) const;
 	
 	// Checks all directions in order: Front, Right, Left, Back, and returns an EvadePoint if it is found
 	bool PathIsClear();
@@ -481,4 +517,18 @@ protected:
 
 	// Execute AsyncPath
 	void OnRequestPathAsyncComplete(uint32 RequestID, ENavigationQueryResult::Type Result, FNavPathSharedPtr Path);
+
+//------------------------------------------------------------------------------
+// Legacy stuff (Deprecated)
+//------------------------------------------------------------------------------
+
+	// Crates a Collision Sphere that other entities check against (Deprecated)
+	void CreateCollisionSphere();
+
+	// Updates the Collision Sphere with future position (Deprecated)
+	void UpdateCollisionSphere(const FVector& CollisionSpherePosition) const;
+	
+	// Collision Sphere used for Dynamic Collision Avoidance (Deprecated)
+	TObjectPtr<USphereComponent>DynamicCollisionSphere = nullptr;
+	
 };

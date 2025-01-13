@@ -6,9 +6,10 @@
 // CORE
 #include "Framework/Data/FLOWLOGS/FLOWLOG_ENTITIES.h"
 #include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
+#include "Entities/Components/StatusComponent.h"
+#include "Entities/Components/EngagementComponent.h"
 
 // UE
-#include "Entities/Components/EDU_CORE_StatusComponent.h"
 #include "Net/UnrealNetwork.h"
 
 //------------------------------------------------------------------------------
@@ -24,8 +25,11 @@ void AEDU_CORE_SelectableEntity::BeginPlay()
 { FLOW_LOG
 	Super::BeginPlay();
 
-	// Initiate pointer to StatusComponent
-	StatusComponent = FindComponentByClass<UEDU_CORE_StatusComponent>();
+	// Initiate a pointer to StatusComponent (if we have one)
+	StatusComponent = FindComponentByClass<UStatusComponent>();
+	
+	// Initiate a pointer to StatusComponent (if we have one)
+	EngagementComponent = FindComponentByClass<UEngagementComponent>();
 	
 	// Create, save and Replicate the Unique ID of this entity.
 	if(HasAuthority())
