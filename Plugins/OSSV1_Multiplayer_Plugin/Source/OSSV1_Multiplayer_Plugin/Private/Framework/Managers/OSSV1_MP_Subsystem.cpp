@@ -340,16 +340,20 @@ void UOSSV1_MP_Subsystem::OnJoinSessionComplete(FName SessionName, EOnJoinSessio
 
 void UOSSV1_MP_Subsystem::DestroySession()
 { FLOW_LOG
+	
 }
 void UOSSV1_MP_Subsystem::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 { FLOW_LOG
+	
 }
 
 void UOSSV1_MP_Subsystem::StartSession()
 { FLOW_LOG
+	
 }
 void UOSSV1_MP_Subsystem::OnStartSessionComplete(FName SessionName, bool bWasSuccessful)
 { FLOW_LOG
+	
 }
 
 //-----------------------------------------------------------------

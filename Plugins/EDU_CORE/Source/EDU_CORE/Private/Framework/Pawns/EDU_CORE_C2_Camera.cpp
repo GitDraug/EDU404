@@ -1,25 +1,28 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "Framework/Pawns/EDU_CORE_C2_Camera.h"
-#include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
 
 #include "Framework/Data/DataAssets/EDU_CORE_CameraPawnInputDataAsset.h"
 #include "Framework/Data/DataTypes/EDU_CORE_DataTypes.h"
 #include "Framework/Data/FLOWLOGS/FLOWLOG_PLAYER.h"
 
-#include "AI/WayPoints/EDU_CORE_Waypoint.h"
+#include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
+#include "Framework/Player/EDU_CORE_PlayerController.h"
+
+#include "Entities/Waypoints/EDU_CORE_Waypoint.h"
 #include "Entities/EDU_CORE_SelectableEntity.h"
 #include "Interfaces/EDU_CORE_CommandInterface.h"
 
-#include "EnhancedInputComponent.h" // Unreal Library
-#include "Framework/Player/EDU_CORE_PlayerController.h"
+// UE
+#include "EnhancedInputComponent.h"
+
+
 
 //------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
 
-AEDU_CORE_C2_Camera::AEDU_CORE_C2_Camera()
+AEDU_CORE_C2_Camera::AEDU_CORE_C2_Camera(const FObjectInitializer& ObjectInitializer) : Super (ObjectInitializer)
 { FLOW_LOG
 
 }
@@ -103,13 +106,23 @@ void AEDU_CORE_C2_Camera::BeginPlay()
 
 // Called every frame
 void AEDU_CORE_C2_Camera::Tick(float DeltaTime)
-{ FLOW_LOG_TICK
+{ // FLOW_LOG_TICK
 	Super::Tick(DeltaTime);
 
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan,
-		FString::Printf(TEXT("ActiveTeam: %d"), ActiveTeam));
-	
-	if (bMouse_2 && CameraSelectionArray.Num() > 0)
+	FString::Printf(TEXT("ActiveTeam: %d"), ActiveTeam));
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan,
+	FString::Printf(TEXT("bNoEntityUnderCursorOnInitialClick: %d"), bNoEntityUnderCursorOnInitialClick));
+
+	/*--------------------- Prep for Movement Waypoint -----------------
+	  If we clicked ground with Mouse 2 while having units selected,
+	  it means we want to place a waypoint where we initially clicked
+	  and rotate it.
+	//-----------------------------------------------------------------*/
+	if(bNoEntityUnderCursorOnInitialClick
+	&& bMouse_2
+	&& CameraSelectionArray.Num() > 0)
 	{
 		int32 ViewportWidth, ViewportHeight;
 		FVector2D MousePos;
@@ -169,81 +182,170 @@ void AEDU_CORE_C2_Camera::Input_Mouse_2_Pressed(const FInputActionValue& InputAc
 { FLOW_LOG
 	Super::Input_Mouse_2_Pressed(InputActionValue);
 
-	// We want to spawn the waypoint were we first clicked, so we can preview and rotate it.
-	InitialCursorWorldPos = CursorWorldPos;
+	// This is the order button, if no enteties are selected, we can't give orders.
+	if(CameraSelectionArray.Num() == 0) return;
 
-	// We use the viewport to measure distance.
-	LocalController->GetMousePosition(InitialMousePos.X, InitialMousePos.Y);
-	
+	/*------------------ Mouse Cursor Context ----------------
+	  Context Matters here, depending on what is under
+	  the cursor the moment we press the button.
+	//-------------------------------------------------------*/
+	switch(EntityUnderMouseCursor)
+	{
+		case EEntityUnderMouseCursor::None:
+			// Clicking Terrain = Move Command
+			bNoEntityUnderCursorOnInitialClick = true;
+				
+			// We want to spawn a Waypoint were we first clicked, so we can preview and rotate it.
+			InitialCursorWorldPos = CursorWorldPos;
+
+			// We use the viewport to measure distance.
+			LocalController->GetMousePosition(InitialMousePos.X, InitialMousePos.Y);
+
+			// Spawn a waypoint locally!
+		break;
+		
+		case EEntityUnderMouseCursor::Unknown:
+			bNoEntityUnderCursorOnInitialClick = false;
+		break;
+		
+		case EEntityUnderMouseCursor::Friendly:
+			bNoEntityUnderCursorOnInitialClick = false;
+		break;
+
+		case EEntityUnderMouseCursor::Hostile:
+			bNoEntityUnderCursorOnInitialClick = false;
+		break;
+		
+	default: ;
+	}	
 }
 
 void AEDU_CORE_C2_Camera::Input_Mouse_2_Released(const FInputActionValue& InputActionValue)
 { FLOW_LOG
 	Super::Input_Mouse_2_Released(InputActionValue);
 	
-	// Send Server Request to create Waypoint
-	if(CameraSelectionArray.Num() > 0)
+	// Enteties might have disappeared (Died?) while we held the button?
+	if(CameraSelectionArray.Num() == 0) return;
+
+	FWaypointParams WaypointParams;
+	
+	/*------------------------------------------------------------------
+	  If no entity were under the cursor on initial click, then we
+	  are in the process of placing a waypoint, and we are ignoring
+	  whatever is under our cursor now, because the Waypoint is
+	  alreayd placed.
+
+	  By default, we are now only tracking the Rotaiton Direction
+	  with the Mouse Cursor as a tracking tool. if Mod_2 is held
+	  we are attacking a position.
+	------------------------------------------------------------------*/
+	if(bNoEntityUnderCursorOnInitialClick)
 	{
-		// Default WaypointParams
-		FWaypointParams WaypointParams;
-		WaypointParams.WorldPosition = InitialCursorWorldPos;
-		WaypointParams.WaypointRotation = CursorRotation;
-		WaypointParams.CursorAlignment = bRotateWaypoint;
+		// WaypointParams
+		WaypointParams.WaypointPosition = InitialCursorWorldPos;
 		
 		if(TObjectPtr<AActor> SelectableEntity = CameraSelectionArray[0])
-		{
-			switch (ModifierKey)
+		{			
+			switch(ModifierKey)
 			{
+				// Queue and Fall through
+				case EEDU_CORE_InputModifierKey::Mod_1:
+				WaypointParams.bQueue = true;
+				
 				// NavigateTo
 				case EEDU_CORE_InputModifierKey::NoModifier:
-					
-					if(HasAuthority()) // If we are on the server, we call it directly.
-					{
-						UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Server: %s::%hs -  %s"), *GetClass()->GetName(), __FUNCTION__, *this->GetName());
-						CreateWaypoint(WaypointParams);
-					}
-					else if(!HasAuthority())// We ask the server to do it.
-					{
-						UE_LOG(FLOWLOG_CATEGORY, Error, TEXT("Client: %s::%hs -  %s"), *GetClass()->GetName(), __FUNCTION__, *this->GetName());
-						Server_CreateWaypoint(WaypointParams);
-					}
-				break;
-					
-				// Queue NavigateTo
-				case EEDU_CORE_InputModifierKey::Mod_1:
-					WaypointParams.Queue = true;
-					
-					if(HasAuthority()) // If we are on the server, we call it directly.
-					{
-						CreateWaypoint(WaypointParams);
-					}
-					else if(!HasAuthority())// We ask the server to do it.
-					{
-						Server_CreateWaypoint(WaypointParams);
-					}
-				break;
-					
-				// AttackPosition
-				case EEDU_CORE_InputModifierKey::Mod_2:
+					WaypointParams.WaypointRotation = CursorRotation;
+					WaypointParams.bCursorAlignment = bRotateWaypoint;
 				break;
 
-				// Queue AttackPosition
+				// Queue and Fall through
 				case EEDU_CORE_InputModifierKey::Mod_12:
-					WaypointParams.Queue = true;
+					WaypointParams.bQueue = true;
+
+				// AttackPosition
+				case EEDU_CORE_InputModifierKey::Mod_2:
+					WaypointParams.TargetPosition = WaypointParams.WaypointPosition;
 				break;
 
 				// ObservePosition
 				case EEDU_CORE_InputModifierKey::Mod_3:
+					// Like attackposition but without the firing. The trace guarantees line of sight, else
+					// rotation is what we actually want.
 				break;
 
-				// Queue ObservePosition
+				// Patrol (Queue is mandatory)
 				case EEDU_CORE_InputModifierKey::Mod_13:
-					WaypointParams.Queue = true;
+					WaypointParams.bQueue = true;
+					WaypointParams.bPatrolPoint = true;
 				break;
 					
 				default: FLOW_LOG_ERROR("switch default");
 			}
 		}
+	}
+	else 
+	{
+		switch(EntityUnderMouseCursor)
+		{
+			case EEntityUnderMouseCursor::None:
+				// Cancel; we might have clicked an entity and regretted the order.
+			break;
+			
+			case EEntityUnderMouseCursor::Waypoint:
+				
+			break;
+			
+			case EEntityUnderMouseCursor::Cover:
+				// Take cover if apropriate entity type
+			break;
+
+			case EEntityUnderMouseCursor::Wreckage:
+				// Repair, Scavange or Recover
+			break;
+				
+			case EEntityUnderMouseCursor::Friendly:
+				// if(LastActor == CameraSelectionArray[0])
+				//{
+				//	WaypointParams.WaypointRotation = CursorRotation;
+            	//	WaypointParams.bCursorAlignment = bRotateWaypoint;	
+				//}
+
+				// Repair or Heal
+			break;
+
+			case EEntityUnderMouseCursor::Hostile:
+				switch (ModifierKey)
+				{
+					// Queue and Fall trough
+					case EEDU_CORE_InputModifierKey::Mod_1:
+						WaypointParams.bQueue = true;
+					
+					default:
+						WaypointParams.TargetArray.AddUnique(LastActor); // TODO: MAke an addentity to array function
+						WaypointParams.WaypointPosition = LastActor->GetActorLocation();
+						WaypointParams.WaypointType = EEDU_CORE_WaypointType::AttackTarget;
+					break;
+				}
+			break;
+		
+		default: ;
+		}	
+	}
+
+	//----------------------------------------------------------------------------
+	// Check Authority and create waypotint
+	//----------------------------------------------------------------------------
+
+	// If the waypoint doesn't have a valid position, something is wrong.
+	if(WaypointParams.WaypointPosition == FVector::ZeroVector) return;
+	
+	if(HasAuthority()) // If we are on the server, we call it directly.
+	{
+		CreateWaypoint(WaypointParams);
+	}
+	else if(!HasAuthority())// We ask the server to do it.
+	{
+		Server_CreateWaypoint(WaypointParams);
 	}
 }
 
@@ -254,7 +356,7 @@ void AEDU_CORE_C2_Camera::Input_Mouse_2_Released(const FInputActionValue& InputA
 void AEDU_CORE_C2_Camera::CreateWaypoint(const FWaypointParams& WaypointParams)
 { FLOW_LOG
 	// Declare the client-side Waypoint we will issue.
-	AEDU_CORE_Waypoint* ServerWaypoint = nullptr;
+	TObjectPtr<AEDU_CORE_Waypoint> ServerWaypoint = nullptr;
 
 	if(CameraSelectionArray.Num() == 0)
 	{
@@ -262,7 +364,7 @@ void AEDU_CORE_C2_Camera::CreateWaypoint(const FWaypointParams& WaypointParams)
 		return;
 	}
 	
-	for(AActor* SelectableEntity : CameraSelectionArray)
+	for(TObjectPtr<AEDU_CORE_SelectableEntity> SelectableEntity : CameraSelectionArray)
 	{
 		// Check that it's alive.
 		if(SelectableEntity)
@@ -276,13 +378,14 @@ void AEDU_CORE_C2_Camera::CreateWaypoint(const FWaypointParams& WaypointParams)
 					{
 						if(TObjectPtr<AEDU_CORE_GameMode> GameMode = Cast<AEDU_CORE_GameMode>(GetWorld()->GetAuthGameMode()))
 						{
-							ServerWaypoint = GameMode->GetFreshWaypointFromPool(EEDU_CORE_Team::None, WaypointParams.WorldPosition);
+							ServerWaypoint = GameMode->GetFreshWaypointFromPool(EEDU_CORE_Team::None, WaypointParams.WaypointPosition);
 
 							if(ServerWaypoint)
 							{
 								ServerWaypoint->SetOwner(this);
-								ServerWaypoint->SetWaypointType(WaypointParams.WaypointType);
-								if(WaypointParams.CursorAlignment)
+								ServerWaypoint->SetWaypointParams(WaypointParams);
+								
+								if(WaypointParams.bCursorAlignment)
 								{
 									// Align waypoint to Cursor World Position
 									ServerWaypoint->SetActorRotation(WaypointParams.WaypointRotation);
@@ -311,7 +414,7 @@ void AEDU_CORE_C2_Camera::CreateWaypoint(const FWaypointParams& WaypointParams)
 				}
 				else
 				{
-					FLOW_LOG_ERROR("Waypoint is null - make sure WaypointType is set in the gameMode in the Editor, also make sure it's a BP version, not .cpp")
+					FLOW_LOG_ERROR("Waypoint is null - make sure WaypointType is set in the GameMode in the Editor, also make sure it's a BP version, not .cpp")
 				}
 			}
 		}
@@ -329,7 +432,7 @@ void AEDU_CORE_C2_Camera::CreateWaypoint(const FWaypointParams& WaypointParams)
 	--------------------------------------------------------------------------------*/
 	if(ServerWaypoint)
 	{
-		ServerWaypoint->NotifyListeners(WaypointParams.Queue);
+		ServerWaypoint->NotifyListeners();
 	}
 }
 

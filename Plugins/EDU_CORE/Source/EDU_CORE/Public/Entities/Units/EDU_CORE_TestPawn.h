@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
 #include "Entities/EDU_CORE_MobileEntity.h"
 #include "Entities/EDU_CORE_PhysicsEntity.h"
 #include "GameFramework/Pawn.h"
@@ -23,7 +24,7 @@ class EDU_CORE_API AEDU_CORE_TestPawn : public AEDU_CORE_MobileEntity
 //------------------------------------------------------------------------------
 public:
 	// Sets default values for this pawn's properties
-	AEDU_CORE_TestPawn();
+	AEDU_CORE_TestPawn(const FObjectInitializer& ObjectInitializer);
 	
 //------------------------------------------------------------------------------
 // Object Lifetime Management

@@ -16,7 +16,7 @@
 // Construction & Object Lifetime Management
 //------------------------------------------------------------------------------
 
-AEDU_CORE_SelectableEntity::AEDU_CORE_SelectableEntity(const FObjectInitializer& ObjectInitializer)
+AEDU_CORE_SelectableEntity::AEDU_CORE_SelectableEntity(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 { FLOW_LOG
 	PrimaryActorTick.bCanEverTick = false;
 }
@@ -82,7 +82,7 @@ void AEDU_CORE_SelectableEntity::GetLifetimeReplicatedProps(TArray<FLifetimeProp
 }
 
 //------------------------------------------------------------------------------
-// Functionality
+// Functionality: Highlighting
 //------------------------------------------------------------------------------
 void AEDU_CORE_SelectableEntity::MouseHighlightActor()
 { FLOW_LOG

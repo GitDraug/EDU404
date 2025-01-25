@@ -16,7 +16,7 @@
 // Construction & Init
 //------------------------------------------------------------------------------
 
-UStatusComponent::UStatusComponent()
+UStatusComponent::UStatusComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 { // Don't Run logs in a component constructor, run it in OnRegister instead.
 
     // Never Tick!
@@ -712,41 +712,49 @@ float UStatusComponent::GetDefenceAgainst(EDamageType DamageType) const
         case EDamageType::EDT_Kinetic:
             if(bKineticImmune) return FLT_MAX;
             return KineticDefence;
+        break;
         ;
 
         case EDamageType::EDT_Cold:
             if(bColdImmune) return FLT_MAX;
             return ColdResistance;
+        break;
         ;
         
         case EDamageType::EDT_Heat:
             if(bHeatImmune) return FLT_MAX;
             return ColdResistance;
+        break;
         ;
 
         case EDamageType::EDT_Radiation:
             if(bRadiationImmune) return FLT_MAX;
             return RadiationResistance;
+        break;
         ;
 
         case EDamageType::EDT_Biological:
             if(bBioImmune) return FLT_MAX;
             return BiologicalResistance;
+        break;
         ;
 
         case EDamageType::EDT_Chemical:
             if(bChemImmune) return FLT_MAX;
             return ChemicalResistance;
+        break;
         ;
 
         case EDamageType::EDT_Malware:
             if(bMalwareImmune) return FLT_MAX;
             return MalwareResistance;
+        break;
         ;
 
         case EDamageType::EDT_Chaos:
             if (bChaosImmune) return FLT_MAX;
             return ChaosResistance;
+        break;
         
         default: return FLT_MAX;;
     }

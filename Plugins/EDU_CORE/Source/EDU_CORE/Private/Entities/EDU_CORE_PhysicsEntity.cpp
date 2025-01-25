@@ -15,11 +15,12 @@
 //------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
-AEDU_CORE_PhysicsEntity::AEDU_CORE_PhysicsEntity():
+AEDU_CORE_PhysicsEntity::AEDU_CORE_PhysicsEntity(const FObjectInitializer& ObjectInitializer) : // initlist
+	Super(ObjectInitializer),
 	bLerpLocation(true),
 	bLerpRotation(true),
 	bLerpScale(false)
-{
+{ FLOW_LOG
 	// Disable ticking at the start
 	PrimaryActorTick.bStartWithTickEnabled = false;
 

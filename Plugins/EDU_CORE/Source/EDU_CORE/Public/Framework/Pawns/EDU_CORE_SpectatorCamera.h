@@ -21,6 +21,18 @@ class AEDU_CORE_PlayerController;
 class AEDU_CORE_HUD;
 class AEDU_CORE_SelectableEntity;
 
+UENUM()
+enum class EEntityUnderMouseCursor : uint8
+{
+	None				UMETA(DisplayName = "None"),
+	Unknown				UMETA(DisplayName = "Unknown"),
+	Waypoint			UMETA(DisplayName = "Waypoint"),
+	Cover				UMETA(DisplayName = "Cover"),
+	Wreckage			UMETA(DisplayName = "Wreckage"),	
+	Friendly			UMETA(DisplayName = "Friendly"),
+	Hostile				UMETA(DisplayName = "Hostile"),
+};
+
 /*------------------------------------------------------------------------------
   CTRL Group struct
 ------------------------------------------------------------------------------*/
@@ -66,14 +78,17 @@ class EDU_CORE_API AEDU_CORE_SpectatorCamera : public APawn
 //------------------------------------------------------------------------------  
 public:
 	FORCEINLINE virtual FVector GetCursorWorldPos() const { return CursorWorldPos; }
+
 	void ChangeTeam(EEDU_CORE_Team NewTeam);
+
+	
 	
 //------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
 public:
-	AEDU_CORE_SpectatorCamera(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-
+	AEDU_CORE_SpectatorCamera(const FObjectInitializer& ObjectInitializer);
+	
 //------------------------------------------------------------------------------
 // Object Lifetime Management
 //------------------------------------------------------------------------------
@@ -174,22 +189,33 @@ protected:
 	------------------------------------------------------------------------------*/
 	//TScriptInterface<IEDU_CORE_Selectable> LastActor; // Last Actor under Cursor
 	//TScriptInterface<IEDU_CORE_Selectable> CurrentActor; // Current Actor under Cursor
-	
-	TObjectPtr<AEDU_CORE_SelectableEntity> LastActor;
-	TObjectPtr<AEDU_CORE_SelectableEntity> CurrentActor;
 
+	// Last Actor under Cursor
+	UPROPERTY(VisibleAnywhere, Category = "Cursor Trace")
+	TObjectPtr<AEDU_CORE_SelectableEntity> LastActor;
+	
+	// The CollosionChannel Our Camera Cursor uses to detect enteties below it.
+	UPROPERTY(EditAnywhere, Category = "Cursor Trace")
+	TEnumAsByte<ECollisionChannel> MouseCursorCollisionChannel = ECC_Visibility;
+
+	// The CollosionChannel Our Camera Cursor uses to detect enteties below it.
+	UPROPERTY(EditAnywhere, Category = "Cursor Trace")
+	EEntityUnderMouseCursor EntityUnderMouseCursor = EEntityUnderMouseCursor::Unknown;
+	
+	
 	//---------------------------------------------------------------------------
 	// Mouse data
 	//---------------------------------------------------------------------------
 	// For passing the cursor 2D position in the 3D world.
 	FVector2d SavedMousePos;
-	
+
+	// Cached for a general functionality
 	FVector CursorWorldPos;
 
 	// A YX struct to save the Mouse movement Input, using APlayerController->GetInputMouseDelta();
 	FVector2d MouseDirection {0.f, 0.f};
 
-	// Used for double click
+	// Used to measure the time between double clicks
 	float Mouse_1_StartTime;
 	
 	//---------------------------------------------------------------------------
@@ -204,24 +230,37 @@ protected:
 	//---------------------------------------------------------------------------
 	// Group Assignment
 	//---------------------------------------------------------------------------
+
+	// Selected entities
 	UPROPERTY()
-	TArray<AEDU_CORE_SelectableEntity*> CameraSelectionArray;
+	TArray<TObjectPtr<AEDU_CORE_SelectableEntity>> CameraSelectionArray;
 	
 	// CTRL Groups
+	UPROPERTY(VisibleAnywhere, Category = "CTRL Groups")
 	FCTRL_Group CTRL_Group_1;
+	UPROPERTY(VisibleAnywhere, Category = "CTRL Groups")
 	FCTRL_Group CTRL_Group_2;
+	UPROPERTY(VisibleAnywhere, Category = "CTRL Groups")
 	FCTRL_Group CTRL_Group_3;
+	UPROPERTY(VisibleAnywhere, Category = "CTRL Groups")
 	FCTRL_Group CTRL_Group_4;
+	UPROPERTY(VisibleAnywhere, Category = "CTRL Groups")
 	FCTRL_Group CTRL_Group_5;
+	UPROPERTY(VisibleAnywhere, Category = "CTRL Groups")
 	FCTRL_Group CTRL_Group_6;
+	UPROPERTY(VisibleAnywhere, Category = "CTRL Groups")
 	FCTRL_Group CTRL_Group_7;
+	UPROPERTY(VisibleAnywhere, Category = "CTRL Groups")
 	FCTRL_Group CTRL_Group_8;
+	UPROPERTY(VisibleAnywhere, Category = "CTRL Groups")
 	FCTRL_Group CTRL_Group_9;
+	UPROPERTY(VisibleAnywhere, Category = "CTRL Groups")
 	FCTRL_Group CTRL_Group_0;
 	
 	//---------------------------------------------------------------------------
 	// Camera Tracing
 	//---------------------------------------------------------------------------
+	
 	// If we can't trace the ground, we can use the end of the trace.
 	FVector CameraTraceEndLocation;
 	
@@ -235,6 +274,7 @@ protected:
 	//------------------------------------------------------------------------------
 	// Zoom tracking Data
 	//------------------------------------------------------------------------------
+	
 	UPROPERTY()
 	float ZoomTraceLength; // Distance to trace for ground.
 	
@@ -253,6 +293,7 @@ protected:
 	//------------------------------------------------------------------------------
 	// EdgeScroll settings
 	//------------------------------------------------------------------------------
+	
 	float ScreenEdgeArea;
 	float EdgeScrollSpeed;
 
@@ -262,6 +303,7 @@ protected:
 	//------------------------------------------------------------------------------
 	// Movement States
 	//------------------------------------------------------------------------------
+	
 	bool bAutoPitchDisengaged = false;
 	bool bFreeLook = false;
 	bool bMouseDrag = false;
@@ -278,6 +320,7 @@ protected:
 	//------------------------------------------------------------------------------
 	// States for the modifier Keys to manage USER_InputModifierKey
 	//------------------------------------------------------------------------------
+	
 	bool bMod_1 = false;
 	bool bMod_2 = false;
 	bool bMod_3 = false;
@@ -288,14 +331,15 @@ protected:
 	  combo of keys is set in the enum USER_InputModifierKey. This means that other
 	  classes only need to keep track of the enum state, instead of several bool.
 	-------------------------------------------------------------------------------*/
-public:
+	
+	public:
 	EEDU_CORE_InputModifierKey ModifierKey;
 
 	//---------------------------------------------------------------------------
 	// Team Stuff
 	//---------------------------------------------------------------------------
 	
-	// Enum to select Team.
+	// Our Selected Team.
 	UPROPERTY(EditAnywhere)
 	EEDU_CORE_Team ActiveTeam = EEDU_CORE_Team::None;
 
@@ -303,12 +347,23 @@ public:
 // Functionality : Selection Controls
 //------------------------------------------------------------------------------
 protected:
-	void ResetCameraSelectionArray(); // Unselect selected entities and empty the Camera's SelectionArray.
-	void ResetHUDSelectionArray() const; // Unselect selected entities and empty the HUD's SelectionArray.
-	void SelectEntitiesInRectangle(); // Save selected entities and empty the HUDArray.
-	virtual void CopyEntitiesInHUDSelectionArray(); 
+
+	// Unselect selected entities and empty the Camera's SelectionArray.
+	void ResetCameraSelectionArray();
+
+	// Unselect selected entities and empty the HUD's SelectionArray.
+	void ResetHUDSelectionArray() const;
+
+	// Save selected entities and empty the HUDArray.
+	void SelectEntitiesInRectangle();
+
+	
+	virtual void CopyEntitiesInHUDSelectionArray();
+	
 	void CallCtrlGroup(const TArray<AEDU_CORE_SelectableEntity*>& CtrlGroupArray);
-	void ReviseSelection(); 	// Remove an Entity from selection, or adds it if not already present. 
+
+	// Remove an Entity from selection, or adds it if not already present. 
+	void ReviseSelection(); 	
 	
 //------------------------------------------------------------------------------
 // Functionality : Camera Controls
@@ -322,9 +377,12 @@ protected:
 	// Utility
 	void MoveCameraAnchor(const FVector2d& Direction, const float& Speed);
 	void CameraTrace();
-
+	
 	// Fires a line-trace on tick and detects whatever is beneath the cursor.
 	void CursorTrace();
+
+	// Checks the Status of the entity under the cursor and reacts acordingly.
+	void EvaluateEntityUnderCursor(const TObjectPtr<AEDU_CORE_SelectableEntity>& CurrentEntity);
 	
 	void UpdateMouseDirection();
 	void ResetCamera();

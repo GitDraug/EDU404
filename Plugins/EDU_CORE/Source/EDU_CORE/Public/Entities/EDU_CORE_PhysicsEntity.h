@@ -25,7 +25,7 @@ class EDU_CORE_API AEDU_CORE_PhysicsEntity : public AEDU_CORE_SelectableEntity
 //------------------------------------------------------------------------------
 public:
 	// Sets default values for this actor's properties
-	AEDU_CORE_PhysicsEntity();
+	AEDU_CORE_PhysicsEntity(const FObjectInitializer& ObjectInitializer);
 
 protected:
 	// Called when the game starts or when spawned

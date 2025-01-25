@@ -15,18 +15,20 @@
 // Construction & Init
 //------------------------------------------------------------------------------
 
-USenseComponent::USenseComponent()
-{
+USenseComponent::USenseComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+{ 
 	// Don't Run logs in a component constructor, run it in OnRegister instead.
 
 	// Disable ticking at the start
 	PrimaryComponentTick.bCanEverTick = false;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
+
+	// This should never exist on the client.
+	SetIsReplicated(false);
 }
 
 void USenseComponent::OnRegister()
-{
-	FLOW_LOG
+{ FLOW_LOG
 	Super::OnRegister();
 
 	// Save this component owning actor
@@ -76,22 +78,22 @@ void USenseComponent::ServerSightCalc(float DeltaTime)
 	if (!HasAuthority()) return;
 	
 	switch (SenseType) {
-		case EFSenseType::ESense_Sight:
-			DetectActorsInFOV();
+	case EFSenseType::ESense_Sight:
+		DetectActorsInFOV();
 		break;
 
-		case EFSenseType::ESense_SightAndHearing:
-			DetectActorsInFOV();
-			Listen();
+	case EFSenseType::ESense_SightAndHearing:
+		DetectActorsInFOV();
+		Listen();
 		break;
 
-		case EFSenseType::ESense_SightAndThermal:
-			DetectActorsInFOV();
+	case EFSenseType::ESense_SightAndThermal:
+		DetectActorsInFOV();
 		break;
 
-		case EFSenseType::ESense_All:
-			DetectActorsInFOV();
-			Listen();
+	case EFSenseType::ESense_All:
+		DetectActorsInFOV();
+		Listen();
 		break;
 	default: ;
 	}
@@ -135,8 +137,9 @@ void USenseComponent::DetectActorsInFOV()
 	}
 
 	FTransform CombinedTransform = ParentTransform * RelativeTransform;
+	FVector ComponentLocation = ParentTransform.GetLocation(); 
 	FVector ForwardVector = CombinedTransform.GetRotation().GetForwardVector();
-	FVector Location = ParentTransform.GetLocation() + (ForwardVector * SightFocusLength);
+	FVector LOSCenterLocation = ComponentLocation + (ForwardVector * SightFocusLength);
 
 	// Define object types to check, add more as needed
 	FCollisionObjectQueryParams ObjectQueryParams;
@@ -164,12 +167,12 @@ void USenseComponent::DetectActorsInFOV()
 
 	// Perform the shape overlap
 	GetWorld()->OverlapMultiByObjectType(
-		SensedActorsArray, // Array to hold results
-		Location, // Center of the sphere
-		Rotation, // Rotation
-		ObjectQueryParams, // Object types to overlap (e.g., ECC_Destructible)
-		Shape, // Shape to check (FieldOfVisionType)
-		CollisionQueryParams // Collision filter
+		SensedActorsArray,		// Array to hold results
+		LOSCenterLocation,		// Center of the sphere
+		Rotation,				// Rotation
+		ObjectQueryParams,		// Object types to overlap (e.g., ECC_Destructible)
+		Shape,					// Shape to check (FieldOfVisionType)
+		CollisionQueryParams	// Collision filter
 	);
 
 	// Optional: Draw a debug sphere (only in debug mode)
@@ -177,15 +180,15 @@ void USenseComponent::DetectActorsInFOV()
 		if (bDrawSightDebugShape)
 		{
 			// Always do this on the main thread.
-			AsyncTask(ENamedThreads::GameThread, [this, Location, Rotation]()
+			AsyncTask(ENamedThreads::GameThread, [this, LOSCenterLocation, Rotation]()
 			{
 				if (FieldOfVisionType == EFieldOfVisionType::EFOV_Sphere)
 				{
-					DrawDebugSphere(GetWorld(), Location, SightRadius, 24, FColor::Yellow, false, 0.5f);
+					DrawDebugSphere(GetWorld(), LOSCenterLocation, SightRadius, 24, FColor::Yellow, false, 0.5f);
 				}
 				else
 				{
-					DrawDebugCapsule(GetWorld(), Location, SightFocusLength, SightRadius, Rotation, FColor::Yellow, false, 0.5f);
+					DrawDebugCapsule(GetWorld(), LOSCenterLocation, SightFocusLength, SightRadius, Rotation, FColor::Yellow, false, 0.5f);
 				}
 			});
 		}
@@ -196,50 +199,50 @@ void USenseComponent::DetectActorsInFOV()
 	{
 		for (const FOverlapResult& OverlapResult : SensedActorsArray)
 		{
-			if (AActor* OverlappingActor = OverlapResult.GetActor())
+			if(AActor* OverlappingActor = OverlapResult.GetActor())
 			{
-				if (AEDU_CORE_SelectableEntity* SelectableEntity = Cast<AEDU_CORE_SelectableEntity>(OverlappingActor))
+				if(AEDU_CORE_SelectableEntity* SelectableEntity = Cast<AEDU_CORE_SelectableEntity>(OverlappingActor))
 				{
-					if (UStatusComponent* TargetStatusComponent = SelectableEntity->GetStatusComponent())
+					if(UStatusComponent* TargetStatusComponent = SelectableEntity->GetStatusComponent())
 					{
 						int32 DetectionChance; // Default value
 
 						switch (SenseType)
 						{
-							case EFSenseType::ESense_SightAndThermal:
-								// Compare ThermalQuality with Camouflage
-								DetectionChance = ThermalQuality - TargetStatusComponent->GetThermalCamouflage();
+						case EFSenseType::ESense_SightAndThermal:
+							// Compare ThermalQuality with Camouflage
+							DetectionChance = ThermalQuality - TargetStatusComponent->GetThermalCamouflage();
 
-								// If DetectionChance is positive, check it
-								if (DetectionChance > 0 && FMath::RandRange(1, 100) <= DetectionChance)
+						// If DetectionChance is positive, check it
+							if (DetectionChance > 0 && FMath::RandRange(1, 100) <= DetectionChance)
+							{
+								if (GetVisualConfirmation(ComponentLocation, SelectableEntity->GetActorLocation(), SelectableEntity))
 								{
-									if (GetVisualConfirmation(SelectableEntity->GetActorLocation(), SelectableEntity))
+									AsyncTask(ENamedThreads::GameThread, [this, SelectableEntity, OurTeam, TargetStatusComponent]()
 									{
-										AsyncTask(ENamedThreads::GameThread, [this, SelectableEntity, OurTeam, TargetStatusComponent]()
-										{
-											// Make sure the entity is invisible to avoid duplicates.
-											SetEntityTeamVisibility(SelectableEntity, OurTeam, TargetStatusComponent);
-										});
-										continue; // Continue for loop if thermal detection is successful.
-									}
+										// Make sure the entity is invisible to avoid duplicates.
+										SetEntityTeamVisibility(SelectableEntity, OurTeam, TargetStatusComponent);
+									});
+									continue; // Continue for loop if thermal detection is successful.
 								}
-							// Fall through to Sight detection if no detection yet.
+							}
+						// Fall through to Sight detection if no detection yet.
 							
-							case EFSenseType::ESense_Sight:
-								// Compare SightQuality with Camouflage
-								DetectionChance = SightQuality - SelectableEntity->GetStatusComponent()->GetVisualCamouflage();
+						case EFSenseType::ESense_Sight:
+							// Compare SightQuality with Camouflage
+							DetectionChance = SightQuality - SelectableEntity->GetStatusComponent()->GetVisualCamouflage();
 
-								// If DetectionChance is positive, check it
-								if (DetectionChance > 0 && FMath::RandRange(1, 100) <= DetectionChance)
+						// If DetectionChance is positive, check it
+							if (DetectionChance > 0 && FMath::RandRange(1, 100) <= DetectionChance)
+							{
+								if (GetVisualConfirmation(ComponentLocation, SelectableEntity->GetActorLocation(), SelectableEntity))
 								{
-									if (GetVisualConfirmation(SelectableEntity->GetActorLocation(), SelectableEntity))
+									AsyncTask(ENamedThreads::GameThread, [this, SelectableEntity, OurTeam, TargetStatusComponent]()
 									{
-										AsyncTask(ENamedThreads::GameThread, [this, SelectableEntity, OurTeam, TargetStatusComponent]()
-										{
-											SetEntityTeamVisibility(SelectableEntity, OurTeam, TargetStatusComponent);
-										});
-									}
+										SetEntityTeamVisibility(SelectableEntity, OurTeam, TargetStatusComponent);
+									});
 								}
+							}
 							break;
 						default:;
 						}
@@ -253,7 +256,7 @@ void USenseComponent::DetectActorsInFOV()
 	SensedActorsArray.Reset();
 }
 
-bool USenseComponent::GetVisualConfirmation(const FVector& EndLocation, const AActor* ActorToConfirm) const
+bool USenseComponent::GetVisualConfirmation(const FVector& StartLocation, const FVector& EndLocation, const AActor* ActorToConfirm) const
 {
 	// FLOW_LOG
 	// Check if we have a valid world context
@@ -272,54 +275,57 @@ bool USenseComponent::GetVisualConfirmation(const FVector& EndLocation, const AA
 
 	// Perform the line trace (single hit)
 	World->LineTraceSingleByChannel(
-		HitResult, // The result of the trace
-		Owner->GetActorUpVector(), // Starting location of the trace
-		EndLocation, // Ending location of the trace
-		SenseObjectType, // Collision channel to trace for
-		QueryParams // Query parameters
+		HitResult,					// The result of the trace
+		StartLocation,				// Starting location of the trace
+		EndLocation,				// Ending location of the trace
+		SenseObjectType,			// Collision channel to trace for
+		QueryParams					// Query parameters
 	);
 
 	// Optional: draw a debug line for visualization
 	if (HitResult.GetActor() == ActorToConfirm)
 	{
-		#if WITH_EDITOR
-			if (bDrawSightDebugLine)
+	#if WITH_EDITOR
+		if(bDrawSightDebugLine)
+		{
+			// Green line indicates confirmation.
+			if(!IsInGameThread())
 			{
-				// Green line indicates confirmation.
-				if (!IsInGameThread())
+				// If not, queue the function to run on the main thread
+				AsyncTask(ENamedThreads::GameThread, [this, World, EndLocation, StartLocation]
 				{
-					// If not, queue the function to run on the main thread
-					AsyncTask(ENamedThreads::GameThread, [this, World, EndLocation]
-					{
-						DrawDebugLine(World, Owner->GetActorLocation(), EndLocation, FColor::Green, false, 1.0f, 0, 1.0f);
-					});
-				}
-				else
-				{
-					DrawDebugLine(World, Owner->GetActorLocation(), EndLocation, FColor::Green, false, 1.0f, 0, 1.0f);
-				}
+					DrawDebugLine(World, StartLocation, EndLocation, FColor::Green, false, 1.0f, 0, 1.0f);
+				});
 			}
-		#endif
-	return true;
+			else
+			{
+				DrawDebugLine(World, StartLocation, EndLocation, FColor::Green, false, 1.0f, 0, 1.0f);
+			}
+		}
+	#endif
+		
+		return true;
 	}
-		#if WITH_EDITOR
-			if (bDrawSightDebugLine)
+	
+	#if WITH_EDITOR
+	if (bDrawSightDebugLine)
+	{
+		// Red line indicates fail.
+		if(!IsInGameThread())
+		{
+			// If not, queue the function to run on the main thread
+			AsyncTask(ENamedThreads::GameThread, [this, World, EndLocation, StartLocation]
 			{
-				// Red line indicates fail.
-				if (!IsInGameThread())
-				{
-					// If not, queue the function to run on the main thread
-					AsyncTask(ENamedThreads::GameThread, [this, World, EndLocation]
-					{
-						DrawDebugLine(World, Owner->GetActorLocation(), EndLocation, FColor::Red, false, 1.0f, 0, 1.0f);
-					});
-				}
-				else
-				{
-					DrawDebugLine(World, Owner->GetActorLocation(), EndLocation, FColor::Red, false, 1.0f, 0, 1.0f);
-				}
-			}
-		#endif
+				DrawDebugLine(World, StartLocation, EndLocation, FColor::Red, false, 1.0f, 0, 1.0f);
+			});
+		}
+		else
+		{
+			DrawDebugLine(World, StartLocation, EndLocation, FColor::Red, false, 1.0f, 0, 1.0f);
+		}
+	}
+	#endif
+	
 	return false;
 }
 
@@ -358,16 +364,16 @@ void USenseComponent::Listen()
 	);
 
 	// Optional: Draw a debug sphere (only in debug mode)
-	#if WITH_EDITOR
-		if (bDrawHearningDebugShape)
+#if WITH_EDITOR
+	if (bDrawHearningDebugShape)
+	{
+		// Always do this on the main thread.
+		AsyncTask(ENamedThreads::GameThread, [this]()
 		{
-			// Always do this on the main thread.
-			AsyncTask(ENamedThreads::GameThread, [this]()
-			{
-				DrawDebugSphere(GetWorld(), Owner->GetActorLocation(), HearingRadius, 24, FColor::Orange, false, 0.5f);
-			});
-		}
-	#endif
+			DrawDebugSphere(GetWorld(), Owner->GetActorLocation(), HearingRadius, 24, FColor::Orange, false, 0.5f);
+		});
+	}
+#endif
 
 	// Log overlapping actors if any
 	if (SensedActorsArray.Num() > 0)
@@ -380,8 +386,6 @@ void USenseComponent::Listen()
 				{
 					if (UStatusComponent* TargetStatusComponent = SelectableEntity->GetStatusComponent())
 					{
-						// Make sure the entity is invisible to avoid duplicates.
-						if(TargetStatusComponent->GetVisibleForTeam(OurTeam) > 0) return;
 						// Compare SightQuality with Camouflage, then assign the result to DetectionChance
 						int32 DetectionChance = HearingQuality - SelectableEntity->GetStatusComponent()->GetNoiseCamouflage();
 
@@ -410,8 +414,8 @@ void USenseComponent::Listen()
 }
 
 void USenseComponent::SetEntityTeamVisibility(AEDU_CORE_SelectableEntity* SelectableEntity,
-                                                       EEDU_CORE_Team OurTeam,
-                                                       UStatusComponent* TargetStatusComponent) const
+                                              EEDU_CORE_Team OurTeam,
+                                              UStatusComponent* TargetStatusComponent) const
 {// FLOW_LOG
 	// Make sure Target Visibility for Our Team is less than half the visibility timer, else we will add duplicates.
 	if (!(TargetStatusComponent->GetVisibleForTeam(OurTeam) < (TargetStatusComponent->GetVisibilityTimer() >> 1))) return;

@@ -58,7 +58,7 @@ class EDU_CORE_API USenseComponent : public UActorComponent
 //------------------------------------------------------------------------------
 public:
 	// Sets default values for this component's properties
-	USenseComponent();
+	USenseComponent(const FObjectInitializer& ObjectInitializer);
 
 protected:
 
@@ -218,7 +218,7 @@ protected:
 
 	// Helper function for DetectActorsInFOV() 
 	UFUNCTION()
-	bool GetVisualConfirmation(const FVector& EndLocation, const AActor* ActorToConfirm) const;
+	bool GetVisualConfirmation(const FVector& StartLocation, const FVector& EndLocation, const AActor* ActorToConfirm) const;
 	
 	//
 	void SetEntityTeamVisibility(AEDU_CORE_SelectableEntity* SelectableEntity, EEDU_CORE_Team OurTeam, UStatusComponent* TargetStatusComponent) const;

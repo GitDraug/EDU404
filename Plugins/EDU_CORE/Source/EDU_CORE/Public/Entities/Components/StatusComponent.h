@@ -33,46 +33,46 @@ class EDU_CORE_API UStatusComponent : public UActorComponent
 // Get/Set
 //------------------------------------------------------------------------------
 public:
-	// Gets the entities C2 Camera
+	// Gets the entity's C2 Camera.
 	FORCEINLINE  TObjectPtr<AEDU_CORE_C2_Camera> GetC2Camera() const { return LocalCamera; };
 	
-	// Gets how long we are visible when detected
+	// Gets how long we are visible when detected.
 	FORCEINLINE uint8 GetVisibilityTimer() const { return VisibilityTimer; };
 	
-	// Gets the entities Maximum Health
+	// Gets the entities Maximum Health.
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; };
 	
-	// Gets the entities Visual Camouflage rating
+	// Gets the entities Visual Camouflage rating.
 	FORCEINLINE int32 GetVisualCamouflage() const { return VisualCamouflage; };
 	
-	// Gets the entities Thermal Camouflage rating
+	// Gets the entities Thermal Camouflage rating.
 	FORCEINLINE int32 GetThermalCamouflage() const { return ThermalCamouflage; };
 	
-	// Gets the entities Noise Camouflage rating
+	// Gets the entities Noise Camouflage rating.
 	FORCEINLINE int32 GetNoiseCamouflage() const { return NoiseCamouflage; };
 	
-	// Gets the team we're currently on
+	// Gets the team this entity currently on.
 	FORCEINLINE EEDU_CORE_Team GetActiveTeam() const { return ActiveTeam; };
 
-	// Sets visibility for a specific team for a duration
+	// Sets visibility for a specific team for a duration.
 	void SetVisibleForTeam(EEDU_CORE_Team TeamIndex, uint8 Time = 10);
 	
-	// Gets visibility for a specific team for a duration
+	// Gets visibility for a specific team for a duration.
 	uint8 GetVisibleForTeam(EEDU_CORE_Team TeamInde) const;
 	
-	// Returns the Defence against a certain damage type 
+	// Returns the Defence against a certain damage type.
 	float GetDefenceAgainst(EDamageType DamageType) const;
 
-	// Sets visibility for a specific team using the default duration
+	// Sets visibility for a specific team using the default duration.
 	void ResetVisibilityForTeam(EEDU_CORE_Team TeamIndex);
-
+	
 //------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
 public:
 	
 	// Sets default values for this component's properties
-	UStatusComponent();
+	UStatusComponent(const FObjectInitializer& ObjectInitializer);
 
 protected:
 
@@ -199,22 +199,22 @@ protected:
 //--------------------------------------------------------------------------
 
 	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
-	EOrganicStatus_Physique PhysiqueStatus;
+	EOrganicStatus_Physique PhysiqueStatus = EOrganicStatus_Physique::Solid;
 	
 	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
-	EOrganicStatus_Condition ConditionStatus;
+	EOrganicStatus_Condition ConditionStatus = EOrganicStatus_Condition::Alert;
 	
 	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
-	EOrganicStatus_Nutrition NutritionStatus;
+	EOrganicStatus_Nutrition NutritionStatus = EOrganicStatus_Nutrition::Satiated;
 	
 	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
-	EOrganicStatus_Hydration HydrationStatus;
+	EOrganicStatus_Hydration HydrationStatus = EOrganicStatus_Hydration::Satiated;
 	
 	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
-	EOrganicStatus_Endurance EnduranceStatus;
+	EOrganicStatus_Endurance EnduranceStatus = EOrganicStatus_Endurance::Rested;
 	
 	UPROPERTY(VisibleAnywhere, Category = "Organic Data | Status")
-	EOrganicStatus_Mental MentalStatus;
+	EOrganicStatus_Mental MentalStatus = EOrganicStatus_Mental::Steady;
 	
 	//-------------------------------------------------------------------
 	// Physique: The body’s physical structure, build, and composition.
@@ -419,37 +419,37 @@ protected:
 	*/
 	
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_0 = 0;
+	uint8 VisibilityForTeam_0 = 1;
 	
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_1 = 0;
+	uint8 VisibilityForTeam_1 = 1;
 	
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_2 = 0;
+	uint8 VisibilityForTeam_2 = 1;
 
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_3 = 0;
+	uint8 VisibilityForTeam_3 = 1;
 
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_4 = 0;
+	uint8 VisibilityForTeam_4 = 1;
 
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_5 = 0;
+	uint8 VisibilityForTeam_5 = 1;
 
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_6 = 0;
+	uint8 VisibilityForTeam_6 = 1;
 
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_7 = 0;
+	uint8 VisibilityForTeam_7 = 1;
 
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_8 = 0;
+	uint8 VisibilityForTeam_8 = 1;
 
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_9 = 0;
+	uint8 VisibilityForTeam_9 = 1;
 
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
-	uint8 VisibilityForTeam_10 = 0;
+	uint8 VisibilityForTeam_10 = 1;
 
 	// This one should never be decremented.
 	UPROPERTY(EditAnywhere, Category = "Defence | Visibility| Team Timers", ReplicatedUsing = OnRep_VisibilityForTeamUpdate)
@@ -505,7 +505,6 @@ protected:
 	// All Organic Conditions this entity is suffering from
 	UPROPERTY(EditAnywhere, Category = "Status")
 	TSet<FOrganicCondition> OrganicConditionSet;
-	
 	
 //--------------------------------------------------------------------------
 // Functionality > Damage Handling

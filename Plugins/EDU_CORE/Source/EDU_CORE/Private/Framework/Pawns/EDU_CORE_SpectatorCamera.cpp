@@ -16,6 +16,7 @@
 #include "EngineUtils.h"
 #include "Camera/CameraComponent.h"
 #include "EnhancedInputComponent.h"
+#include "Entities/Components/StatusComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 
 //---------------------------------------------------------------------------
@@ -33,7 +34,7 @@ void AEDU_CORE_SpectatorCamera::ChangeTeam(EEDU_CORE_Team NewTeam)
 		// Iterate over all Selectable Entities and make the visible
 		for (TActorIterator<AEDU_CORE_SelectableEntity> Entity(GetWorld()); Entity; ++Entity)
 		{
-			if (!Entity->bCanBeSelected)
+			if (!Entity->bCanBeRectangleSelected)
 			{
 				continue;
 			}
@@ -46,7 +47,7 @@ void AEDU_CORE_SpectatorCamera::ChangeTeam(EEDU_CORE_Team NewTeam)
 		// The ticking StatusComponent in each actor will make team entities visible again for the right team.
 		for (TActorIterator<AEDU_CORE_SelectableEntity> Entity(GetWorld()); Entity; ++Entity)
 		{
-			if (!Entity->bCanBeSelected)
+			if (!Entity->bCanBeRectangleSelected)
 			{
 				continue;
 			}
@@ -60,6 +61,7 @@ void AEDU_CORE_SpectatorCamera::ChangeTeam(EEDU_CORE_Team NewTeam)
 //------------------------------------------------------------------------------
 AEDU_CORE_SpectatorCamera::AEDU_CORE_SpectatorCamera(const FObjectInitializer& ObjectInitializer) : Super (ObjectInitializer)
 { FLOW_LOG
+	
 	// Tick
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -117,6 +119,10 @@ void AEDU_CORE_SpectatorCamera::PawnClientRestart()
 void AEDU_CORE_SpectatorCamera::Tick(float DeltaTime)
 { // FLOW_LOG_TICK
 	Super::Tick(DeltaTime);
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan,
+		FString::Printf(TEXT("Entity UnderMouseCursor: %d "), EntityUnderMouseCursor));
+	
 	
 	// GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Cyan, FString::Printf(TEXT("Elements in CameraSelectionArray: %d "), CameraSelectionArray.Num()));
 	
@@ -592,7 +598,7 @@ void AEDU_CORE_SpectatorCamera::CursorTrace()
 			FVector TraceEnd = TraceStart + (WorldDirection * (ZoomTraceLength + SpringArmComponent->TargetArmLength));
 			
 			// Perform the CameraTrace // TODO: It would be best to make a custom CollisionProfile or channel for only Ground and Selectables.
-			if(GetWorld()->LineTraceSingleByChannel(CameraTraceResult, TraceStart, TraceEnd, ECC_Visibility, CameraTraceCollisionParams))
+			if(GetWorld()->LineTraceSingleByChannel(CameraTraceResult, TraceStart, TraceEnd, MouseCursorCollisionChannel, CameraTraceCollisionParams))
 			{
 				// Check if we hit something
 				if(CameraTraceResult.bBlockingHit)
@@ -601,8 +607,7 @@ void AEDU_CORE_SpectatorCamera::CursorTrace()
 					CursorWorldPos = CameraTraceResult.ImpactPoint;
 	
 					// Highlight any selectable entity that we might have the cursor on.
-					LastActor = CurrentActor;
-					CurrentActor = Cast<AEDU_CORE_SelectableEntity>(CameraTraceResult.GetActor());
+					TObjectPtr<AEDU_CORE_SelectableEntity> CurrentActor = Cast<AEDU_CORE_SelectableEntity>(CameraTraceResult.GetActor());
 					/*------------------------------------------------------------------------------
 					  Line Trace from Cursor, possible scenarios:
 						  1. LastActor == null && CurrentActor && null
@@ -618,20 +623,21 @@ void AEDU_CORE_SpectatorCamera::CursorTrace()
 					------------------------------------------------------------------------------*/
 					if(LastActor == nullptr)
 					{
-						if(CurrentActor == nullptr)
+						if(CurrentActor == nullptr) // Scenario 1; Do Nothing.
 						{
-							// Scenario 1; Do Nothing.
+							EntityUnderMouseCursor = EEntityUnderMouseCursor::None;
 						}
-						else
+						else // Scenario 2: Highlight CurrentActor
 						{
-							CurrentActor->MouseHighlightActor(); // Scenario 2: Highlight CurrentActor
+							CurrentActor->MouseHighlightActor();
+							EvaluateEntityUnderCursor(CurrentActor);
 						}
 					}
 					else // LastActor is valid...
 					{   
-						if(CurrentActor == nullptr) 
+						if(CurrentActor == nullptr) // Scenario 3: LastActor is valid && CurrentActor is null
 						{
-							LastActor->MouseUnHighlightActor(); // Scenario 3: LastActor is valid && CurrentActor is null
+							LastActor->MouseUnHighlightActor(); 
 						}
 						else //  Both actors are valid...
 						{
@@ -639,13 +645,44 @@ void AEDU_CORE_SpectatorCamera::CursorTrace()
 							{  // Scenario 4:
 								LastActor->MouseUnHighlightActor();
 								CurrentActor->MouseHighlightActor();
+								EvaluateEntityUnderCursor(CurrentActor);
 							}
 							// Else:Both actors are valid, and LastActor == CurrentActor
 							// Scenario 5: Do nothing.
 						}
 					}
+
+					LastActor = CurrentActor;
 				}
 			}
+		}
+	}
+}
+
+void AEDU_CORE_SpectatorCamera::EvaluateEntityUnderCursor(const TObjectPtr<AEDU_CORE_SelectableEntity>& CurrentEntity)
+{
+	if(CurrentEntity && CurrentEntity->GetStatusComponent())
+	{
+		if(CurrentEntity->GetStatusComponent()->GetActiveTeam() == ActiveTeam)
+		{
+			/*-------------------------------------------------------
+			  Same as Our Team
+				- Team Color Highlighting
+				- HealthBar?
+				- Cursor Change.
+			-------------------------------------------------------*/
+			EntityUnderMouseCursor = EEntityUnderMouseCursor::Friendly;
+		}
+		else
+		{
+			EntityUnderMouseCursor = EEntityUnderMouseCursor::Hostile;
+		}
+	}
+	else
+	{
+		if(CurrentEntity->GetEntityType() == EEntitytype::Waypoint)
+		{
+			EntityUnderMouseCursor = EEntityUnderMouseCursor::Waypoint;
 		}
 	}
 }

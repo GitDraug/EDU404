@@ -64,7 +64,7 @@ public:
 private:
 	// ThreadSafe SmartPtr
 	TSharedPtr<IOnlineSession, ESPMode::ThreadSafe> SessionInterface;
-
+	
 	// Saved SessionSettings
 	TSharedPtr<FOnlineSessionSettings>SessionSettings;
 	// Saved SessionSearch

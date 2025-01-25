@@ -16,6 +16,21 @@ class UEngagementComponent;
   Allows the entity to be selected by the Camera UI.
 ------------------------------------------------------------------------------*/
 
+UENUM(BlueprintType)
+enum class EEntitytype : uint8
+{
+
+	Unit		UMETA(DisplayName = "Unit"),
+
+	Waypoint	UMETA(DisplayName = "Waypoint"),
+
+	Resource	UMETA(DisplayName = "Resource"),
+
+	Weapon		UMETA(DisplayName = "Weapon"),
+
+	MAX				UMETA(Hidden)
+};
+
 UCLASS(Abstract)
 class EDU_CORE_API AEDU_CORE_SelectableEntity : public AActor
 {
@@ -25,7 +40,7 @@ class EDU_CORE_API AEDU_CORE_SelectableEntity : public AActor
 // Construction & Object Lifetime Management
 //------------------------------------------------------------------------------
 public:
-	AEDU_CORE_SelectableEntity(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	AEDU_CORE_SelectableEntity(const FObjectInitializer& ObjectInitializer);
 
 	virtual void BeginPlay() override;
 
@@ -33,10 +48,14 @@ public:
 // Get/Set
 //--------------------------------------------------------------
 public:
-	
+
+	// Returns the Entety's StatusComponent.
 	FORCEINLINE TObjectPtr<UStatusComponent> GetStatusComponent() const { return StatusComponent; };
 
+	// Returns the Entety's EngagementComponent.
 	FORCEINLINE TObjectPtr<UEngagementComponent> GetEngagementComponent() const { return EngagementComponent; };
+
+	FORCEINLINE EEntitytype GetEntityType() const { return EntityType; }
 	
 //------------------------------------------------------------------------------
 // Networking
@@ -51,22 +70,28 @@ protected:
 // Components
 //------------------------------------------------------------------------------
 public:
-	UPROPERTY(EditAnywhere,
-	Category = "Selection",
-	meta = (DisplayName = "Can be selected",
-	ToolTip = "Allows this entity to be detected and selected by the Selection Marquee in the HUD."))
-	bool bCanBeSelected = true;
 
 	UPROPERTY()
 	bool bMouseHighlighted = false;
-
+	
 	UPROPERTY()
 	bool bRectangleHighlighted = false;
 
 	UPROPERTY()
 	bool bSelected = false;
+	
+	UPROPERTY(EditAnywhere,
+	Category = "Selection",
+	meta = (DisplayName = "Can Be be selected by Rectangle Marquee",
+	ToolTip = "Allows this entity to be detected and selected by the Selection Marquee in the HUD."))
+	bool bCanBeRectangleSelected = true;
 
 protected:
+
+	// What kind of Entity is this?
+	UPROPERTY(EditAnywhere, Category = "Selection")
+	EEntitytype EntityType = EEntitytype::Unit;
+	
 	// Pointer to our StatusComponent (if we have one)
 	UPROPERTY()
 	TObjectPtr<UStatusComponent> StatusComponent = nullptr;
@@ -74,10 +99,9 @@ protected:
 	// Pointer to our EngagementComponent (if we have one)
 	UPROPERTY()
 	TObjectPtr<UEngagementComponent> EngagementComponent = nullptr;
-
 	
 //------------------------------------------------------------------------------
-// Functionality
+// Functionality: Highligtning
 //------------------------------------------------------------------------------
 public:
 	/*-------------------------------------------------------------------------------------
@@ -99,6 +123,10 @@ public:
 	virtual void SelectActor();
 	virtual void UnSelectActor();
 
+//------------------------------------------------------------------------------
+// Functionality: Server Stuff
+//------------------------------------------------------------------------------
+	
 	virtual void SetGUID(FGuid NewID) { ServerEntityID = NewID; };
 	virtual FGuid GetGUID() { return ServerEntityID; };
 

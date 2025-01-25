@@ -7,9 +7,8 @@
 //------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
-AEDU_CORE_TestPawn::AEDU_CORE_TestPawn()
-{
-	FLOW_LOG
+AEDU_CORE_TestPawn::AEDU_CORE_TestPawn(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+{ FLOW_LOG
 	  PrimaryActorTick.bCanEverTick = false;
 }
 

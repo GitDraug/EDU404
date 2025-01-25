@@ -12,6 +12,9 @@
 // THIS
 #include "FixedWeaponComponent.generated.h"
 
+class UEngagementComponent;
+class AEDU_CORE_MobileEntity;
+
 /*------------------------------------------------------------------------------
   Fixed Weapon Component
 --------------------------------------------------------------------------------
@@ -21,9 +24,6 @@
   mount for YawMovement, while this component can still pitch. The component
   is pure data and logic, no graphics are involved.
 ------------------------------------------------------------------------------*/
-
-class UEngagementComponent;
-class AEDU_CORE_MobileEntity;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class EDU_CORE_API UFixedWeaponComponent : public UActorComponent
@@ -35,12 +35,30 @@ class EDU_CORE_API UFixedWeaponComponent : public UActorComponent
 //------------------------------------------------------------------------------
 public:
 
+	// Checks the status of this Weapon Mount
+	FORCEINLINE EWeaponStatus	GetFixedWeaponStatus()	const	{ return FixedWeaponStatus; }
+
+	// Returns all weapons on this Weapon Mount
+	FORCEINLINE TArray<FProjectileWeaponInformation>& GetAllWeaponsInfo() { return WeaponStructArray; }; 
+
+	//-------------------------------
+	// Max Stat Info
+	//-------------------------------
+	
+	FORCEINLINE float		GetMaxRange()		const { return MaxRange; }
+	FORCEINLINE float		GetMaxDamage()		const { return MaxDamage; }
+	FORCEINLINE EDamageType GetMaxDamageType()	const { return MaxDamageType; }
+
+	// Updates Max Damage Weapon
+	void EvaluateWeapons();
+	
 //------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
 public:
+	
 	// Sets default values for this component's properties
-	UFixedWeaponComponent();
+	UFixedWeaponComponent(const FObjectInitializer& ObjectInitializer);
 
 protected:
 
@@ -81,6 +99,9 @@ protected:
 // Components
 //------------------------------------------------------------------------------
 protected:
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadWrite, Category = "Weapons")
+	EWeaponStatus FixedWeaponStatus = EWeaponStatus::Ready;
 	
 	// Array of WeaponStructs
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons")
@@ -102,6 +123,61 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UEngagementComponent> EngagementComponent = nullptr;
 
+	/*----------------------------- Targets ------------------------------
+	  We can hurt ViableTargets with at least one of our weapons,
+	  Priority Targets can hit us with at least one of their weapons.
+	---------------------------------------------------------------------*/
+	public:
+	
+	UPROPERTY(EditAnywhere, Category = "Targets")
+	ETargetPriority TargetPriority = ETargetPriority::Nearest;
+
+	// Pointer to current TargetEntity
+	UPROPERTY(VisibleAnywhere, Category = "Targets")
+	TObjectPtr<AEDU_CORE_SelectableEntity> TargetEntity = nullptr;
+	
+	// Array of targets we can damage.
+	UPROPERTY(VisibleAnywhere, Category = "Targets")
+	TArray<TObjectPtr<AEDU_CORE_SelectableEntity>> ViableTargetsArray;
+
+	// Array of targets we can damage, that can also hurt us.
+	UPROPERTY(VisibleAnywhere, Category = "Targets")
+	TArray<TObjectPtr<AEDU_CORE_SelectableEntity>> PriorityTargetsArray;
+
+	/*---------------------- Max Damage Weapon Info -----------------------
+	  This is used by the EngagementComponent and other Tactical agents
+	  to make decisions. Damage is the most important stat, because if a
+	  weapon can't penetrate the target's armor, no other stat matters.
+	---------------------------------------------------------------------*/
+	protected:
+	
+	// Cached: ID of the most potent weapon on this Turret.
+	UPROPERTY()
+	FGuid MaxDamageWeaponID;
+	
+	// Cached: Damage Amount of the most potent weapon on this Turret.
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapons")
+	EDamageType MaxDamageType = EDamageType::EDT_None;
+
+	// Cached: Damage Type of the most potent weapon on this Turret.
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapons")
+	float MaxDamage = 0.f;
+
+	/*---------------------- Max Range Weapon Info -----------------------
+	  This is used by the EngagementComponent and other Tactical agents
+	  to make decisions. Range is the second most important stat because
+	  it allows us to engage targets without moving.
+	---------------------------------------------------------------------*/
+
+	UPROPERTY()
+	FGuid MaxRangeWeaponID;
+	
+	UPROPERTY()
+	int32 MaxRangeArrayIndex = 0;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapons")
+	float MaxRange = 0.f;
+
 //------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------
@@ -114,4 +190,8 @@ protected:
 	
 	// Ensure that we have an EngagementComponent active. This component will not function properly without it.
 	void EnsureEngagementComponent();
+
+	void SortTargets(ETargetPriority InTargetPriority, TArray<TObjectPtr<AEDU_CORE_SelectableEntity>> TargetArray) const;
+
+	bool HasLineOfSight(const FVector& Vector, const FVector& TargetPos, const TObjectPtr<AEDU_CORE_SelectableEntity>& Target) const;
 };

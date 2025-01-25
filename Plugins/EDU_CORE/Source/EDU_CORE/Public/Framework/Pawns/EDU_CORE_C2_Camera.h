@@ -12,7 +12,7 @@ class AEDU_CORE_Waypoint;
 /*------------------------------------------------------------------------------
   Abstract SUPER Class intended to be inherited from.
 --------------------------------------------------------------------------------
-  The C2 (Command and control) camera allows the user to interact with actors
+  The C2 (Command & control) camera allows the user to interact with actors
   and entities in the level. It is a continuation of the SpectatorCamera.
 ------------------------------------------------------------------------------*/
 
@@ -25,6 +25,7 @@ class EDU_CORE_API AEDU_CORE_C2_Camera : public AEDU_CORE_SpectatorCamera
 // Get/Set
 //------------------------------------------------------------------------------  
 public:
+	
 	FORCEINLINE virtual FVector GetSavedCursorWorldPos() const { return InitialCursorWorldPos; }
 	FORCEINLINE EEDU_CORE_Team GetTeam() const { return ActiveTeam; }
 
@@ -34,8 +35,9 @@ public:
 // Construction & Init
 //------------------------------------------------------------------------------
 public:
+	
 	// Sets default values for this pawn's properties
-	AEDU_CORE_C2_Camera();
+	AEDU_CORE_C2_Camera(const FObjectInitializer& ObjectInitializer);
 
 protected:
 	// Called when the game starts or when spawned
@@ -49,6 +51,7 @@ public:
 // Input Setup
 //------------------------------------------------------------------------------
 protected:
+	
 	// Called upon possession by a PlayerController, to bind functionality to input.
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
@@ -72,6 +75,9 @@ protected:
 	FVector InitialCursorWorldPos; 
 	FRotator CursorRotation;
 
+	// Mouse Cursor State
+	EMouseCursor::Type MouseCursor;
+	
 	//-----------------------------------------------------------------------
 	// Waypoint data
 	//-----------------------------------------------------------------------
@@ -82,6 +88,8 @@ protected:
 	// Should we rotate the waypoint towards the cursor?
 	bool bRotateWaypoint = false;
 
+	// Mouse_2 StartClickContext
+	bool bNoEntityUnderCursorOnInitialClick;
 
 	//-----------------------------------------------------------------------
 	// Team

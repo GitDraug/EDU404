@@ -6,24 +6,24 @@
 #if UE_BUILD_DEVELOPMENT
 
   // Normal program flow, no message
-    #define FLOW_LOG if(HasAuthority()) \
+    #define FLOW_LOG if(IsValid(this) && HasAuthority()) \
           { UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("Server: %s::%hs"), *GetName(), __FUNCTION__); } \
      else { UE_LOG(FLOWLOG_CATEGORY, Display, TEXT("Client: %s::%hs"), *GetName(), __FUNCTION__); }
 
   // Warning with a message
-    #define FLOW_LOG_WARNING(Message) if(HasAuthority()) \
+    #define FLOW_LOG_WARNING(Message) if(IsValid(this) && HasAuthority()) \
           { UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Server: %s::%hs - %s"), *GetName(), __FUNCTION__, TEXT(Message)); } \
      else { UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Client: %s::%hs - %s"), *GetName(), __FUNCTION__, TEXT(Message)); }
 
   // Error with a message
-    #define FLOW_LOG_ERROR(Message) if(HasAuthority()) \
+    #define FLOW_LOG_ERROR(Message) if(IsValid(this) && HasAuthority()) \
           { UE_LOG(FLOWLOG_CATEGORY, Error, TEXT("Server: %s::%hs - %s"), *GetName(), __FUNCTION__, TEXT(Message)); } \
      else { UE_LOG(FLOWLOG_CATEGORY, Error, TEXT("Client: %s::%hs - %s"), *GetName(), __FUNCTION__, TEXT(Message)); }
 
 //-------------------------------------------------------
 // Used to track when a Tick starts
 //-------------------------------------------------------
-  #define FLOW_LOG_TICK if(HasAuthority()) \
+  #define FLOW_LOG_TICK if(IsValid(this) && HasAuthority()) \
         { UE_LOG(FLOWLOG_TICK_CATEGORY, Display, TEXT("Server: %s::%hs"), *GetName(), __FUNCTION__); } \
    else { UE_LOG(FLOWLOG_TICK_CATEGORY, Display, TEXT("Client: %s::%hs"), *GetName(), __FUNCTION__); } 
 //-------------------------------------------------------

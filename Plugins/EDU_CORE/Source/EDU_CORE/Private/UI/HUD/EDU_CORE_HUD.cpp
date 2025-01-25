@@ -85,7 +85,7 @@ void AEDU_CORE_HUD::DetectEntitiesInSelectionRectangle(const TSubclassOf<class A
 		AEDU_CORE_SelectableEntity* Entity = *Itr;
 
 		// Skip if the entity is invalid or cannot be selected
-		if (!Entity || !Entity->bCanBeSelected)
+		if (!Entity || !Entity->bCanBeRectangleSelected)
 		{
 			continue;
 		}
@@ -110,7 +110,7 @@ void AEDU_CORE_HUD::DetectEntitiesInSelectionRectangle(const TSubclassOf<class A
 			if(Entity->bRectangleHighlighted)
 			{
 				Entity->UnRectangleHighlightActor();
-				OutEntityArray.Remove(Entity);
+				OutEntityArray.RemoveSingleSwap(Entity);
 			}
 		}
 	}
@@ -154,7 +154,7 @@ void AEDU_CORE_HUD::DetectEntityUnderCursor(const FVector2d& MousePosition, cons
 		{
 			if (AEDU_CORE_SelectableEntity* EntityUnderCursor = Cast<AEDU_CORE_SelectableEntity>(CameraTraceResult.GetActor()))
 			{
-				if(EntityUnderCursor->bCanBeSelected)
+				if(EntityUnderCursor->bCanBeRectangleSelected)
 				{
 					HUDSelectionArray.AddUnique(EntityUnderCursor);
 				}

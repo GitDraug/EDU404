@@ -82,7 +82,7 @@ struct FVisibilityStruct
 		
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visible Actors")
 	TArray<AActor*> Team_10_VisibleActors;
-
+	
 	//------------------------------------------------------------------------------
 	// Hidden actor arrays, used to skip actors during Weapon Checks.
 	//------------------------------------------------------------------------------
@@ -328,9 +328,11 @@ protected:
 	float LastStatusComponentTime;
 	float LastEngagementComponentTime;
 	float LastSightComponentTime;
-	float LastTurretComponentTime;
 	float LastFixedWeaponComponentTime;
 
+	float LastTurretComponentAnimationTime;
+	float LastTurretComponentEvaluationTime;
+	
 	UPROPERTY()
 	float AsyncedClock = 0;
 

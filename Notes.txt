@@ -1,5 +1,15 @@
 
 //------------------------------------
+// Authority issues
+//------------------------------------
+	Authority issues are caused by the build config, related to hot the .NET backend sets up a server.
+	It has nothing to do with or code. Best is to clean out old files.
+	
+	Clean out folder and try again.
+	Rebuild project and try again.
+	Reinstall Rider plugin and try again.
+
+//------------------------------------
 // Splash Screen
 //------------------------------------
 	Project Settings>Platforms>Windows

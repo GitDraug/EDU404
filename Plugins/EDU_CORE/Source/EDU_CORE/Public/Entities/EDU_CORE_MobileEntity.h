@@ -46,15 +46,36 @@ UENUM()
 enum class EMovementOrder : uint8
 {
 	// Just started the game.
+		None			UMETA(DisplayName = "None"),
+	// Can't Move
 		Disabled		UMETA(DisplayName = "Disabled"),
 	// Ready for orders.	
 		Idle			UMETA(DisplayName = "Ready for orders"),
-	// Navigate to position.
-		Navigate		UMETA(DisplayName = "Move To"),
+	// Move to position.
+		MoveTo			UMETA(DisplayName = "Moving to Waypoint"),
+	// Stop and aim
+		Aim				UMETA(DisplayName = "Aiming"),
 	// Come to a controlled stop at the current position.
-		Park			UMETA(DisplayName = "Park"),
-	// Never Move, not for anything.
-		HoldPosition	UMETA(DisplayName = "Hold Position"),
+		Park			UMETA(DisplayName = "Parking"),
+	// Hidden max value for internal use only.
+		MAX				UMETA(Hidden)
+};
+
+UENUM()
+enum class ENavigationMode : uint8
+{
+	// Just started the game.
+		None			UMETA(DisplayName = "None"),
+	// Normal movement
+		Navigate		UMETA(DisplayName = "Navigating"),
+	// Looking for trouble
+		Roam			UMETA(DisplayName = "Roaming"),
+	// Seek Cover
+		SeekCover		UMETA(DisplayName = "Seeking Cover"),
+	// No LOS to target
+		SeekTarget		UMETA(DisplayName = "Seeking Target"),
+	// Keeping minimum distance
+		KeepDistance	UMETA(DisplayName = "Keeping Distance"),
 	// Hidden max value for internal use only.
 		MAX				UMETA(Hidden)
 };
@@ -82,7 +103,8 @@ class EDU_CORE_API AEDU_CORE_MobileEntity : public AEDU_CORE_PhysicsEntity, publ
 // Construction & Init
 //------------------------------------------------------------------------------
 protected:
-	AEDU_CORE_MobileEntity();
+	AEDU_CORE_MobileEntity(const FObjectInitializer& ObjectInitializer);
+	
 	virtual void BeginPlay() override;
 
 //------------------------------------------------------------------------------
@@ -103,12 +125,12 @@ public:
 //------------------------------------------------------------------------------
 public:
 	
-	virtual void AddWaypoint(AEDU_CORE_Waypoint* Waypoint, const EEDU_CORE_WaypointType WaypointType, const FVector& WaypointLocation, const FRotator& WaypointRotation, const FVector& WaypointForwardVector, const FVector& WaypointRightVector, const int32 FormationIndex, const bool Queue) override;
+	virtual void AddWaypoint(const FWaypointParams& Params) override;
 	virtual void RemoveWaypoint(AEDU_CORE_Waypoint* Waypoint) override;
 	virtual void ClearAllWaypoints();
 
 	// Waypoint needs to update listeners about FormationLocation whenever an entity leaves the formation.
-	virtual void UpdateFormationLocation(const FVector WaypointLocation, FRotator WaypointRotation, FVector WaypointForwardVector, FVector WaypointRightVector, int32 FormationIndex);
+	virtual void UpdateFormationLocation(const FWaypointParams& Params);
 
 	// Get Batch Index from GameMode
 	virtual void UpdateBatchIndex(const int32 ServerBatchIndex);
@@ -124,6 +146,12 @@ public:
 
 	// Set if this Entity should align with target, necessary with fixed weapons that needs manual aiming.
 	virtual void SetTargetPosition(const FVector& InTargetPos) { TargetPosition = InTargetPos; };
+
+	// Sets the distance to slow down while aiming at a target.
+	virtual void SetSlowDownThresholdWhileAiming(const float& SlowDistance) {  SlowDownThresholdWhileAiming = SlowDistance; }
+
+	// Sets the distance to stop while aiming at a target.
+	virtual void SetStopThresholdWhileAiming(const float& StopDistance) {  StopThresholdWhileAiming = StopDistance; }
 	
 //------------------------------------------------------------------------------
 // Components: Waypoints & Navigation
@@ -146,10 +174,9 @@ protected:
 	// Relocate Position in case we need to evade something
 	FVector EvadePoint;
 
-	// Place in formation
-	UPROPERTY()
-	int32 SavedFormationIndex;
-
+	// Relocate Position in case we need to evade something
+	FVector AimPoint;
+	
 	// Properties of representation of an 'agent' used by AI navigation/pathfinding.
 	FNavAgentProperties NavAgentProperties;
 
@@ -164,8 +191,30 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Physics")
 	TObjectPtr<UPhysicalMaterial>PhysicalMaterial;
 
-	// Current Order
-	EMovementOrder MovementOrder;
+	//-----------------------------------
+	// Current Orders
+	//-----------------------------------
+	
+	UPROPERTY(VisibleAnywhere, Category = "Current Orders")
+	EEDU_CORE_AlertnessLevel AlertnessLevel = EEDU_CORE_AlertnessLevel::Indifferent;
+	
+	UPROPERTY(VisibleAnywhere, Category = "Current Orders")
+    EEDU_CORE_InfantryStance InfantryStance = EEDU_CORE_InfantryStance::None;
+
+	UPROPERTY(VisibleAnywhere, Category = "Current Orders")
+	EEDU_CORE_MovementSpeed MovementSpeed = EEDU_CORE_MovementSpeed::Full;
+
+	UPROPERTY(VisibleAnywhere, Category = "Current Orders")
+	EEDU_CORE_ROE ROE = EEDU_CORE_ROE::HoldFire;
+
+	UPROPERTY(VisibleAnywhere, Category = "Current Orders")
+	EEngagementMode EngagementMode = EEngagementMode::HoldPosition;
+
+	UPROPERTY(VisibleAnywhere, Category = "Current Orders")
+	EMovementOrder MovementOrder = EMovementOrder::None;
+
+	UPROPERTY(VisibleAnywhere, Category = "Current Orders")
+	ENavigationMode NavigationMode = ENavigationMode::None;
 
 //------------------------------------------------------------------------------
 // Physics Movement
@@ -232,9 +281,23 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Movement | Locomotion")
 	float StopThreshold = 100.f;
 
+	// How far from the target position should we slow down if we are aiming at a target?
+	// This variable is set by our EngagementComponent
+	UPROPERTY(EditAnywhere, Category = "Movement | Locomotion| Combat")
+	float SlowDownThresholdWhileAiming = 1500.f;
+
+	// How far from the Waypoint are we allowed to park if are aiming at a target? (Centimeters)
+	// This variable is set by our EngagementComponent
+	UPROPERTY(EditAnywhere, Category = "Movement | Locomotion| Combat")
+	float StopThresholdWhileAiming = 1000.f;
+
 	// How much drifting do we want?
-	UPROPERTY(EditAnywhere, Category = "Movement | Locomotion", meta = (ClampMin = "0.0", ClampMax = "0.999"))
-	float Inertia = 0.f;
+	UPROPERTY(EditAnywhere, Category = "Movement | Locomotion", meta = (ClampMin = "0.0", ClampMax = "0.999"),  meta = (EditCondition = "!bDynamicInertia"))
+	float FixedInertia = 0.f;
+
+	// Inertia increase and decrease with speed.
+	UPROPERTY(EditAnywhere, Category = "Movement | Locomotion")
+	bool bDynamicInertia;
 
 	// Show the Show Velocity Markers for debugging.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement | Locomotion")
@@ -370,10 +433,13 @@ protected:
 	//---------------------------------------------
 	// Formation Data
 	//---------------------------------------------
+	
 	// Location in formation, in offset to the waypoint. The offset depends on formation.
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Current Orders")
 	FVector FormationLocation;
 	
 	// Rotation in formation.
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Current Orders")
 	FRotator FormationRotation;
 	
 	//---------------------------------------------
@@ -381,6 +447,8 @@ protected:
 	//---------------------------------------------
 	bool bShouldReverse = false;
 	bool bForceReverse = false;
+
+	bool bShouldAim = false;
 
 	// Distance to Position
 	float Distance;
@@ -397,6 +465,7 @@ protected:
 	//---------------------------------------------
 	// Align
 	//---------------------------------------------
+	
 	float TurnRate = 0.f;
 	
 	bool bCheckAlignment = false;
@@ -463,7 +532,7 @@ protected:
 	virtual void ReviewNavigationQueue();
 	
 	// Carry out waypoint orders
-	virtual void ExecuteOrders(const EEDU_CORE_WaypointType WaypointType, const FVector& WaypointLocation, const FRotator& WaypointRotation, const FVector& WaypointForwardVector, const FVector& WaypointRightVector, int32 FormationIndex);
+	virtual void ExecuteOrders(const FWaypointParams& Params);
 	
 //------------------------------------------------------------------------------
 // Functionality: Utility

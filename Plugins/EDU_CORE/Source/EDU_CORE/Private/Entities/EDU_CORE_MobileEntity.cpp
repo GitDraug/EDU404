@@ -3,7 +3,7 @@
 #include "Entities/EDU_CORE_MobileEntity.h"
 
 // CORE
-#include "AI/WayPoints/EDU_CORE_Waypoint.h"
+#include "EDU_CORE/Public/Entities/Waypoints/EDU_CORE_Waypoint.h"
 #include "Framework/Data/FLOWLOGS/FLOWLOG_ENTITIES.h"
 #include "Framework/Managers/GameModes/EDU_CORE_GameMode.h"
 #include "Framework/Data/DataTypes/EDU_CORE_DataTypes.h"
@@ -49,10 +49,66 @@
 --------------------------------------------------------------------------------------------------*/
 
 //------------------------------------------------------------------------------
+// Construction & Init
+//------------------------------------------------------------------------------
+
+AEDU_CORE_MobileEntity::AEDU_CORE_MobileEntity(const FObjectInitializer& ObjectInitializer) : Super (ObjectInitializer)
+{ FLOW_LOG
+	
+	// Disable ticking at the start
+	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+
+	// Enable Asynchronous Physics tick
+	bAsyncPhysicsTickEnabled = true;
+	
+	// General variable replication
+	bReplicates = true;
+
+	// Always relevant for network (overrides bOnlyRelevantToOwner).
+	// bAlwaysRelevant = true;
+
+	// Whether this actor can take damage. Must be true for damage events (e. g. ReceiveDamage()) to be called.
+	SetCanBeDamaged(false);
+}
+
+void AEDU_CORE_MobileEntity::BeginPlay()
+{ FLOW_LOG
+	Super::BeginPlay();
+
+	// Server Tick
+	if(GetNetMode() != NM_Client)
+	{
+		if (AEDU_CORE_GameMode* GameMode = Cast<AEDU_CORE_GameMode>(GetWorld()->GetAuthGameMode()))
+		{
+			GameMode->AddToMobileEntityArray(this);
+		}
+		
+		// CreateCollisionSphere();
+	}
+
+	// Initiate PhysicsBodyInstance pointer
+	PhysicsBodyInstance = PhysicsComponent->GetBodyInstance();
+
+	// Initiate PhysicalMaterial
+	PhysicalMaterial = PhysicsBodyInstance->GetSimplePhysicalMaterial();
+
+	LastValidLocation = GetActorLocation();
+	
+	// Properties of representation of an 'agent' used by AI navigation/pathfinding.
+	NavAgentProperties.AgentRadius = AgentRadius;			
+	NavAgentProperties.AgentHeight = AgentHeight;				
+	NavAgentProperties.AgentStepHeight = AgentStepHeight;		
+	NavAgentProperties.NavWalkingSearchHeightScale = NavWalkingSearchHeightScale;
+
+	BoxExtent = RootComponent->Bounds.GetBox().GetExtent();
+	
+}
+
+//------------------------------------------------------------------------------
 // Aggregated Server tick
 //------------------------------------------------------------------------------
 
-// Only runs PathIsClear()
 void AEDU_CORE_MobileEntity::ServerMobileBatchedCalc()
 {
 	if(ActualSpeed != 0.f)
@@ -61,7 +117,6 @@ void AEDU_CORE_MobileEntity::ServerMobileBatchedCalc()
 	}
 }
 
-// Calculates speed, distance, CheckReversalConditions
 void AEDU_CORE_MobileEntity::ServerMobileCalc(float DeltaTime, int32 CurrentBatchIndex)
 {
 	// Caching Current Position once per tick to avoid redundant calls.
@@ -74,17 +129,21 @@ void AEDU_CORE_MobileEntity::ServerMobileCalc(float DeltaTime, int32 CurrentBatc
 	CalculateCurrentSpeed(CurrentPos, DeltaTime); // Pass position to avoid redundant calls
 	switch (MovementOrder)
 	{
-		case EMovementOrder::Navigate:
+		case EMovementOrder::MoveTo:
 			// We don't want to runt his too often.
-			if (CurrentBatchIndex == BatchIndex) HandleNavigation();
+			if(CurrentBatchIndex == BatchIndex) HandleNavigation();
 		break;
-				
+
+		case EMovementOrder::Aim:
+			 // HandleAiming(CurrentRotation);
+		break;
+		
 		case EMovementOrder::Park:
 			HandleParking(CurrentRotation);
 		break;
 				
 		default:
-		break;
+	break;
 	}
 
 	//----------------------------------------------------------------------------------------------------
@@ -126,7 +185,7 @@ void AEDU_CORE_MobileEntity::ServerMobileCalc(float DeltaTime, int32 CurrentBatc
 	//----------------------------------------------------------------------------------------------------
 	if(bShouldAlign
 	|| MovementOrder == EMovementOrder::Park
-	|| MovementOrder == EMovementOrder::Navigate)
+	|| MovementOrder == EMovementOrder::MoveTo)
 	{
 		CheckAlignment(CurrentRotation);
 	}
@@ -135,11 +194,12 @@ void AEDU_CORE_MobileEntity::ServerMobileCalc(float DeltaTime, int32 CurrentBatc
 	// Check if we've been bumped
 	//----------------------------------------------------------------------------------------------------	
 	DeltaTimer += DeltaTime;
-	if(DeltaTimer >= 0.5f
+	if(DeltaTimer > 0.5f
 	&& CurrentBatchIndex == BatchIndex
-	&& !CurrentSpeed == 0.f
+	&& CurrentSpeed > 0.f
+	&& Distance > StopThreshold
 	&& MovementOrder == EMovementOrder::Idle)
-	{		
+	{
 		CheckAlignment(CurrentRotation);
 		CheckPosition(CurrentPos);
 		
@@ -157,7 +217,7 @@ void AEDU_CORE_MobileEntity::ServerMobileExec(float DeltaTime, int32 CurrentBatc
 	// Timers
 	//----------------------------------------------------------------------------------------------------------
 	//	DEBUGMESSAGE, FColor::Orange,	FString::Printf(TEXT("DebugTimer: %f"),debug_DebugTimer));
-
+	//	DEBUGMESSAGE, FColor::Emerald,	FString::Printf(TEXT("Distance: %f"), Distance));
 	//----------------------------------------------------------------------------------------------------------
 	// State
 	//----------------------------------------------------------------------------------------------------------
@@ -181,7 +241,6 @@ void AEDU_CORE_MobileEntity::ServerMobileExec(float DeltaTime, int32 CurrentBatc
 				DEBUGMESSAGE, FColor::White,	FString::Printf(TEXT("MovementOrder:None")));
 			break;
 		}//*/
-		
 	//	DEBUGMESSAGE, FColor::Emerald,	FString::Printf(TEXT("bShouldAlign: %d"),bShouldAlign));
 	//	DEBUGMESSAGE, FColor::Emerald,	FString::Printf(TEXT("bShouldReverse: %d"),bShouldReverse));
 	//	DEBUGMESSAGE, FColor::Emerald,	FString::Printf(TEXT("bShouldEvadeLeft: %d"),bShouldEvadeLeft));
@@ -263,13 +322,15 @@ void AEDU_CORE_MobileEntity::ServerMobileExec(float DeltaTime, int32 CurrentBatc
 	}
 	
 	//----------------------------------------------------------------------------------------------------
-	// Handle Movement
+	// Handle Alignment
 	//----------------------------------------------------------------------------------------------------
-	if(MovementOrder == EMovementOrder::Navigate
+
+	// Alignment While Moving
+	if(MovementOrder == EMovementOrder::MoveTo
 	|| MovementOrder == EMovementOrder::Park)
 	{
 		if(MovementType == EMovementType::CenterRotates
-		&& ActualSpeed < 1.f
+		&& ActualSpeed == 0.f
 		&& bShouldAlign)
 		{
 			// Turn first;
@@ -280,18 +341,16 @@ void AEDU_CORE_MobileEntity::ServerMobileExec(float DeltaTime, int32 CurrentBatc
 		}
 	}
 
-	//----------------------------------------------------------------------------------------------------
-	// Align to the current target if needed.
-	//----------------------------------------------------------------------------------------------------
+	// Alignment while Still
 	if(bShouldAlign)
 	{
 		switch (MovementType)
 		{
 			case EMovementType::BiDirectional:
-				if(ActualSpeed != 0.f)
+				if(ActualSpeed > 1.f)
 				{
 					Align();
-					AdjustSpeed();
+					// AdjustSpeed();
 				}
 				else
 				{
@@ -315,7 +374,15 @@ void AEDU_CORE_MobileEntity::AdjustSpeed() // We Use 0.02f (50FPS) instead of De
 	if(bMovesOnSurface && !bIsOnSurface) return;
 
 	// We divide our movement vector between ForwardVector and our InertiaVector to control drift deterministically.
+	float Inertia = FixedInertia;
 	FVector ForwardVector;
+	FVector InertiaVector = PhysicsBodyInstance->GetUnrealWorldVelocity() * Inertia;
+	
+	if(bDynamicInertia)
+	{
+		Inertia = (CurrentSpeed / MaxSpeed);
+	}
+	
 	if(MovementType == EMovementType::OmniDirectional)
 	{
 		// Vector towards target
@@ -334,8 +401,6 @@ void AEDU_CORE_MobileEntity::AdjustSpeed() // We Use 0.02f (50FPS) instead of De
 		ForwardVector = GetActorForwardVector() * ForceOutput * (1.f - Inertia);
 	}
 	
-	FVector InertiaVector = PhysicsBodyInstance->GetUnrealWorldVelocity() * Inertia;
-	
 	if(ActualSpeed < DesiredSpeed)
 	{
 		if(bShouldReverse)
@@ -347,7 +412,7 @@ void AEDU_CORE_MobileEntity::AdjustSpeed() // We Use 0.02f (50FPS) instead of De
 		{
 			ForceOutput = FMath::Clamp(ForceOutput + Acceleration * 0.02f, -MaxSpeed, MaxSpeed);
 		}
-		
+
 		// Draw the debug line
 		#if WITH_EDITOR
 			if(bShowVelocityDebug)
@@ -370,6 +435,7 @@ void AEDU_CORE_MobileEntity::AdjustSpeed() // We Use 0.02f (50FPS) instead of De
 			// Break
 			ForceOutput = FMath::Clamp(ForceOutput - (Acceleration * AccelerationBrakeMult * 0.02f), -MaxSpeed, MaxSpeed);
 		}
+
 		// Draw the debug line
 		#if WITH_EDITOR
 			if(bShowVelocityDebug)
@@ -381,7 +447,7 @@ void AEDU_CORE_MobileEntity::AdjustSpeed() // We Use 0.02f (50FPS) instead of De
 	}
 
 	// Apply final calculation as Linear Velocity
-	PhysicsBodyInstance->SetLinearVelocity(ForwardVector + InertiaVector, false);
+	PhysicsBodyInstance->SetLinearVelocity(ForwardVector + (InertiaVector), false);
 	// PhysicsBodyInstance->AddForce(FVector(-GetActorUpVector() * PhysicsBodyInstance->GetBodyMass() * 980.f), false);
 }
 
@@ -420,7 +486,7 @@ void AEDU_CORE_MobileEntity::Align()
 		float CurrentTorque = FMath::Abs(Torque.Z);
 		float FrictionCompensation = 0.f;
 		
-		switch (RotationMode)
+		switch(RotationMode)
 		{
 			case ERotationMode::LocalYaw:
 			// We need to apply more torque due to conversion
@@ -504,87 +570,22 @@ void AEDU_CORE_MobileEntity::Align()
 }
 
 //------------------------------------------------------------------------------
-// Construction & Init
-//------------------------------------------------------------------------------
-
-AEDU_CORE_MobileEntity::AEDU_CORE_MobileEntity()
-{
-	// Disable ticking at the start
-	PrimaryActorTick.bCanEverTick = false;
-	PrimaryActorTick.bStartWithTickEnabled = false;
-
-	// Enable Asynchronous Physics tick
-	bAsyncPhysicsTickEnabled = true;
-	
-	// General variable replication
-	bReplicates = true;
-
-	// Always relevant for network (overrides bOnlyRelevantToOwner).
-	// bAlwaysRelevant = true;
-
-	// Whether this actor can take damage. Must be true for damage events (e. g. ReceiveDamage()) to be called.
-	SetCanBeDamaged(false);
-}
-
-void AEDU_CORE_MobileEntity::BeginPlay()
-{
-	Super::BeginPlay();
-
-	// Server Tick
-	if(GetNetMode() != NM_Client)
-	{
-		if (AEDU_CORE_GameMode* GameMode = Cast<AEDU_CORE_GameMode>(GetWorld()->GetAuthGameMode()))
-		{
-			GameMode->AddToMobileEntityArray(this);
-		}
-		
-		// CreateCollisionSphere();
-	}
-
-	// Initiate PhysicsBodyInstance pointer
-	PhysicsBodyInstance = PhysicsComponent->GetBodyInstance();
-
-	// Initiate PhysicalMaterial
-	PhysicalMaterial = PhysicsBodyInstance->GetSimplePhysicalMaterial();
-	
-	// Set TurnRate
-	if(MovementType == EMovementType::CenterRotates)
-	{
-		TurnRate = MaxRotationRate;
-	}
-	else
-	{
-		TurnRate = 0.f;
-	}
-
-	LastValidLocation = GetActorLocation();
-	
-	// Properties of representation of an 'agent' used by AI navigation/pathfinding.
-	NavAgentProperties.AgentRadius = AgentRadius;			
-	NavAgentProperties.AgentHeight = AgentHeight;				
-	NavAgentProperties.AgentStepHeight = AgentStepHeight;		
-	NavAgentProperties.NavWalkingSearchHeightScale = NavWalkingSearchHeightScale;
-
-	BoxExtent = RootComponent->Bounds.GetBox().GetExtent();
-	
-}
-
-//------------------------------------------------------------------------------
 // Waypoint Utility
 //------------------------------------------------------------------------------
 
-void AEDU_CORE_MobileEntity::AddWaypoint(AEDU_CORE_Waypoint* Waypoint,const EEDU_CORE_WaypointType WaypointType,const FVector& WaypointLocation,const FRotator& WaypointRotation,const FVector& WaypointForwardVector,const FVector& WaypointRightVector,const int32 FormationIndex, const bool Queue)
+void AEDU_CORE_MobileEntity::AddWaypoint(const FWaypointParams& Params)
 { FLOW_LOG
-	if(!Queue && WaypointArray.Num() > 0) // Always clear the array if anything is in it and the waypoint is not queued.
+	if(!Params.bQueue && WaypointArray.Num() > 0) // Always clear the array if anything is in it and the waypoint is not queued.
 	{
 		ClearAllWaypoints();
 	}
-	else if(Queue && WaypointArray.Num() > 0) // An empty array doesn't need queueing.
+	
+	else if(Params.bQueue && WaypointArray.Num() > 0) // An empty array doesn't need queueing.
 	{
 		// Make sure that we don't exceed the maximum number of waypoints before saving.
 		if (WaypointArray.Num() < MaxWaypointCapacity)
 		{
-			WaypointArray.AddUnique(Waypoint);
+			WaypointArray.AddUnique(Params.WaypointPtr);
 			
 			// Waypoint is queued, no need to execute it.
 			return;
@@ -594,7 +595,7 @@ void AEDU_CORE_MobileEntity::AddWaypoint(AEDU_CORE_Waypoint* Waypoint,const EEDU
 			WaypointArray[0]->RemoveActorFromWaypoint(this);
 			WaypointArray.RemoveAt(0);
 		
-			WaypointArray.AddUnique(Waypoint);
+			WaypointArray.AddUnique(Params.WaypointPtr);
 
 			// Waypoint is queued, no need to execute it.
 			return;
@@ -605,8 +606,8 @@ void AEDU_CORE_MobileEntity::AddWaypoint(AEDU_CORE_Waypoint* Waypoint,const EEDU
 	NavPointArray.Reset();
 	bShouldEvade = false;
 	
-	WaypointArray.AddUnique(Waypoint);
-	ExecuteOrders(WaypointType, WaypointLocation, WaypointRotation, WaypointForwardVector, WaypointRightVector, FormationIndex);
+	WaypointArray.AddUnique(Params.WaypointPtr);
+	ExecuteOrders(Params);
 }
 
 void AEDU_CORE_MobileEntity::RemoveWaypoint(AEDU_CORE_Waypoint* Waypoint)
@@ -654,78 +655,138 @@ void AEDU_CORE_MobileEntity::RetrieveWaypointOrders()
 	{
 		if(WaypointArray[0])
 		{
-			const EEDU_CORE_WaypointType WaypointType = WaypointArray[0]->GetWaypointType();
-			const FVector WaypointLocation = WaypointArray[0]->GetActorLocation();
-			const FRotator WaypointRotation = WaypointArray[0]->GetActorRotation();
-			const FVector WaypointForwardVector = WaypointArray[0]->GetActorForwardVector();
-			const FVector WaypointRightVector = WaypointArray[0]->GetActorRightVector();
-			const int32 FormationIndex = WaypointArray[0]->GetFormationIndex(this);
-			
-			ExecuteOrders(WaypointType, WaypointLocation, WaypointRotation, WaypointForwardVector, WaypointRightVector, FormationIndex);
-
-			// Used for Delays
-			SavedFormationIndex = FormationIndex;
+			ExecuteOrders(WaypointArray[0]->GetWaypointParams());
 		}
 	}
 }
 
 void AEDU_CORE_MobileEntity::ReviewNavigationQueue()
-{ // FLOW_LOG
+{ FLOW_LOG	
 	if(bShouldEvade)
 	{
+		// We have reached evasionpoint, return and check distance to the next point.
 		bShouldEvade = false;
 		return;
 	}
 
 	if(NavPointArray.Num() > 0)
 	{
-		// We have reached the first navpoint, so remove it.
+		// We have reached the first navpoint, remove it and check distance to the next point.
 		UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("NavPointArray.RemoveAt(0)"));
 		NavPointArray.RemoveAt(0);
 		return;
 	}
-	
-	if(WaypointArray.Num() == 1)
+
+	if(WaypointArray.Num() > 1 && WaypointArray[0]->IsPatrolPoint()) // Infinite loop unless there are more than 1.
 	{
-		// We have reached final destination, we should park.
-		MovementOrder = EMovementOrder::Park;
+		// Remove the first element and add it to the end of the array
+		TObjectPtr<AEDU_CORE_Waypoint> Patrolpoint = WaypointArray[0];
+		WaypointArray.RemoveAt(0);
+		WaypointArray.Add(Patrolpoint);
+
+		// Continue
+		RetrieveWaypointOrders();
+		return;
+	}
+
+	switch (NavigationMode)
+	{
+		case ENavigationMode::None:
+		case ENavigationMode::Navigate:
+		case ENavigationMode::Roam: // Remove waypoint
+			{
+				if(WaypointArray.Num() > 0&& NavPointArray.Num() == 0)
+				{
+					RemoveWaypoint(WaypointArray[0]);
+		
+					if(WaypointArray.Num() > 0 && NavPointArray.Num() == 0) // Find a way to the next waypoint.
+					{
+						RequestPathAsync(GetActorLocation(), FormationLocation);
+					}
+					else
+					{
+						// We have reached final destination, we should park.
+						MovementOrder = EMovementOrder::Park;
+						return;
+					}
+				}
+			}
+		break;
+		
+		case ENavigationMode::SeekCover:
+		break;
+		
+		case ENavigationMode::SeekTarget: // We want to save the waypoint until the target is gone.
+			// If LOS stop, else get closer.
+			// If fixed weapon; align
+			DesiredSpeed = 0.f;
+			MovementOrder = EMovementOrder::Aim;
+			return;
+		break;
+		
+		case ENavigationMode::KeepDistance:
+		break;
+		
+		case ENavigationMode::MAX:
+		break;
+	default: ;
 	}
 
 	if(WaypointArray.Num() == 0)
 	{
 		// We have arrived
 		MovementOrder = EMovementOrder::Park;
-		return;
 	}
-
-	// We shouldn't get here if this is empty (causing a crash because ReviewNavigationQueue() shouldn't be called unless we know what we are doing.), 
-	RemoveWaypoint(WaypointArray[0]);
-
-	if(WaypointArray.Num() > 0)
-	{
-		RequestPathAsync(GetActorLocation(), FormationLocation);
-		//RequestPath(GetActorLocation(), FormationLocation);
-	}
-
 }
 
-void AEDU_CORE_MobileEntity::UpdateFormationLocation(const FVector WaypointLocation, const FRotator WaypointRotation, const FVector WaypointForwardVector, const FVector WaypointRightVector, const int32 FormationIndex)
+void AEDU_CORE_MobileEntity::UpdateFormationLocation(const FWaypointParams& Params)
 { // FLOW_LOG
+
+	int32 FormationIndex = WaypointArray[0]->GetFormationIndex(this);
+	
+	// Default
+	FVector NextPosition = Params.WaypointPosition;
+	NavigationMode = ENavigationMode::Navigate;
+
+	//If we have a target, we use that instead.
+	if(Params.TargetPosition != FVector::ZeroVector)
+	{
+		NavigationMode = ENavigationMode::SeekTarget;
+		NextPosition = Params.TargetPosition;
+	}
+	else if(Params.TargetArray.Num() > 0)
+	{
+		NavigationMode = ENavigationMode::SeekTarget;
+		NextPosition = Params.TargetArray[0]->GetActorLocation();
+	}
+	
 	//------------------------------------------------------------------------------------
 	// Line Formation
 	//------------------------------------------------------------------------------------
 	if(FormationIndex == 0) // Alone, leader or the Index is faulty.
 	{
-		FormationLocation = WaypointLocation;
+		FormationLocation = NextPosition;
 	}
 	else if(FormationIndex % 2 != 0) // Odd number, go right.
 	{
-		FormationLocation = WaypointLocation + (-WaypointRightVector * FormationSpacing) * FormationIndex;
+		FormationLocation = NextPosition + (-Params.WaypointRightVector * FormationSpacing) * FormationIndex;
 	}
 	else if(FormationIndex % 2 == 0) // Even number, go right.
 	{
-		FormationLocation = WaypointLocation + (WaypointRightVector * FormationSpacing) * FormationIndex;
+		FormationLocation = NextPosition + (Params.WaypointRightVector * FormationSpacing) * FormationIndex;
 	}
+
+	// Draw a debug sphere at the location of each path point
+	DrawDebugSphere(
+		this->GetWorld(),				 // World context
+		FormationLocation,               // Location of the sphere
+		25,								 // Radius of the sphere
+		4,                               // Segments for smoother sphere edges
+		FColor::Magenta,                 // Color of the sphere
+		false,                           // Persistent (will disappear after duration)
+		5.f								 // Duration in seconds
+	);
+	
 	
 	/*
 	//------------------------------------------------------------------------------------
@@ -778,31 +839,18 @@ void AEDU_CORE_MobileEntity::UpdateBatchIndex(const int32 ServerBatchIndex)
 	BatchIndex = ServerBatchIndex;
 }
 
-void AEDU_CORE_MobileEntity::ExecuteOrders(const EEDU_CORE_WaypointType WaypointType, const FVector& WaypointLocation, const FRotator& WaypointRotation, const FVector& WaypointForwardVector, const FVector& WaypointRightVector, int32 FormationIndex)
+void AEDU_CORE_MobileEntity::ExecuteOrders(const FWaypointParams& Params)
 { // FLOW_LOG
-	// The Following information depends on the type of waypoint we read.
-	switch (WaypointType)
-	{
-		case EEDU_CORE_WaypointType::NavigateTo:
-		// Activate navigation
-			UpdateFormationLocation(WaypointLocation, WaypointRotation, WaypointForwardVector, WaypointRightVector, FormationIndex);
 
-			MovementOrder = EMovementOrder::Navigate;
-			FormationRotation = WaypointRotation;
+	// Default until change
+	MovementOrder = EMovementOrder::MoveTo;
 
-		// Get a path to waypoint
-			//RequestPath(GetActorLocation(), FormationLocation);
-			RequestPathAsync(GetActorLocation(), FormationLocation);
-		break;
-				
-		case EEDU_CORE_WaypointType::AttackPosition:
-			UpdateFormationLocation(WaypointLocation, WaypointRotation, WaypointForwardVector, WaypointRightVector, FormationIndex);
-		break;
-				
-		case EEDU_CORE_WaypointType::ObservePosition:
-			MovementOrder = EMovementOrder::Idle;
-		break;
-	}
+	TargetPosition = Params.TargetPosition;
+	FormationRotation = Params.WaypointRotation;
+	
+	UpdateFormationLocation(Params);
+	RequestPathAsync(GetActorLocation(), FormationLocation);
+	
 }
 
 //------------------------------------------------------------------------------
@@ -868,7 +916,7 @@ void AEDU_CORE_MobileEntity::CheckAlignment(const FRotator& CurrentPos)
 	//---------------------------------------------------------------------------------
 	FRotator AlignEndRotation;							
 	
-	if(MovementOrder == EMovementOrder::Navigate)
+	if(MovementOrder == EMovementOrder::MoveTo)
 	{
 		if(bShouldEvade)
 		{
@@ -878,7 +926,7 @@ void AEDU_CORE_MobileEntity::CheckAlignment(const FRotator& CurrentPos)
 		else if(NavPointArray.Num() > 0)
 		{
 			// UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Aligning with NavPointArray[0]."));
-			AlignEndRotation.Yaw = UtilityLibrary::GetRotationToTargetPos(this,NavPointArray[0]).Yaw;
+			AlignEndRotation.Yaw = UtilityLibrary::GetRotationToTargetPos(this, NavPointArray[0]).Yaw;
 
 			#if WITH_EDITOR
 				if(bShowCollisionDebug)
@@ -901,10 +949,15 @@ void AEDU_CORE_MobileEntity::CheckAlignment(const FRotator& CurrentPos)
 				}
 			#endif
 		}
+		else if(bShouldAim)
+		{
+			// UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Aligning with NavPointArray[0]."));
+			AlignEndRotation.Yaw = UtilityLibrary::GetRotationToTargetPos(this, AimPoint).Yaw;
+		}
 		else
 		{
 			// UE_LOG(FLOWLOG_CATEGORY, Warning, TEXT("Aligning with FormationLocation."));
-			AlignEndRotation.Yaw = UtilityLibrary::GetRotationToTargetPos(this,FormationLocation).Yaw;
+			AlignEndRotation.Yaw = UtilityLibrary::GetRotationToTargetPos(this, FormationLocation).Yaw;
 		}
 	}
 	else
@@ -927,7 +980,7 @@ void AEDU_CORE_MobileEntity::CheckAlignment(const FRotator& CurrentPos)
 		OmniDirectionalVector = AlignEndRotation.Vector();
 
 		// ... but they do align if the distance is very far... 
-		if(MovementOrder == EMovementOrder::Navigate
+		if(MovementOrder == EMovementOrder::MoveTo
 		&& Distance < OmniDirectionalAlignDistance)
 		{		
 			bShouldAlign = false;
@@ -943,7 +996,7 @@ void AEDU_CORE_MobileEntity::CheckAlignment(const FRotator& CurrentPos)
 			}
 			if(TargetPosition != FVector::ZeroVector)
 			{
-				AlignEndRotation.Yaw = UtilityLibrary::GetRotationToTargetPos(this,TargetPosition).Yaw;
+				AlignEndRotation.Yaw = UtilityLibrary::GetRotationToTargetPos(this, TargetPosition).Yaw;
 			}
 		}
 	}
@@ -951,7 +1004,7 @@ void AEDU_CORE_MobileEntity::CheckAlignment(const FRotator& CurrentPos)
 	//---------------------------------------------------------------------------------
 	// Rotation calculation
 	//---------------------------------------------------------------------------------
-	// First check, no tolerance.
+	
 	float RawAlignRotationDistance = UtilityLibrary::CalculateRotationDistance(AlignStartRotation.Yaw, AlignEndRotation.Yaw, 0.f);
 	float AlignRotationDistance = FMath::Abs(RawAlignRotationDistance);
 
@@ -984,13 +1037,17 @@ void AEDU_CORE_MobileEntity::CheckAlignment(const FRotator& CurrentPos)
 	// Now we can evaluate the difference to see if we should align based of tolerance.
 	//---------------------------------------------------------------------------------
 	// Branchless Execution (Better than if)
-	bShouldAlign = AlignRotationDistance > 2.f;
+	bShouldAlign = AlignRotationDistance > 1.f;
+	if (MovementOrder == EMovementOrder::Park && MovementType == EMovementType::BiDirectional)
+	{
+		bShouldAlign = AlignRotationDistance > 2.f;
+	}
 	
 	//---------------------------------------------------------------------------------
 	// Calculate Turnrate based on distance
 	//---------------------------------------------------------------------------------	
 	TurnRate = UtilityLibrary::CalculateFastestTurnRate(MaxRotationRate, RawAlignRotationDistance, SlowRotationDistance);
-
+	
 	//---------------------------------------------------------------------------------
 	// Alignment effects evasion
 	//---------------------------------------------------------------------------------
@@ -1020,7 +1077,7 @@ void AEDU_CORE_MobileEntity::CheckPosition(const FVector& CurrentPos)
 	if(CurrentPos != FormationLocation
 	&& WaypointArray.Num() == 0)
 	{
-		MovementOrder = EMovementOrder::Navigate;
+		MovementOrder = EMovementOrder::MoveTo;
 	}
 }
 
@@ -1086,12 +1143,33 @@ void AEDU_CORE_MobileEntity::CheckReversalConditions(const float RotationDistanc
 
 void AEDU_CORE_MobileEntity::HandleNavigation()
 {
+	float Stop = 0.f;
+	float SlowDown = 0.f;
+	
+	using enum ENavigationMode;
+	switch(NavigationMode)
+	{
+		case None:
+		case Navigate:
+		case Roam:
+			SlowDown = SlowDownThreshold;
+			Stop = StopThreshold; 
+		break;
+		
+		case SeekTarget:
+			SlowDown = SlowDownThresholdWhileAiming;
+			Stop = StopThresholdWhileAiming;
+		break;
+		
+	default: FLOW_LOG_ERROR("HandleNavigation :: switch(NavigationMode) = default");
+	}
+	
 	// Setting DesiredSpeed based on Distance thresholds.
-	if (Distance > SlowDownThreshold)
+	if(Distance > SlowDown)
 	{
 		DesiredSpeed = MaxSpeed;
 	}
-	else if (Distance < StopThreshold)
+	else if(Distance < Stop)
 	{
 		ReviewNavigationQueue();
 	}
@@ -1119,10 +1197,9 @@ void AEDU_CORE_MobileEntity::HandleParking(const FRotator& CurrentPos)
 	}
 	else
 	{
-		if (bShouldAlign)
+		if(bShouldAlign)
 		{
 			DesiredSpeed = ParkingSpeed;
-			bShouldReverse = false;
 		}
 		else
 		{
@@ -1300,7 +1377,10 @@ bool AEDU_CORE_MobileEntity::PathIsClear()
 	}
 
 	// No path is clear, return false
-	FLOW_LOG_WARNING("All directions false, need navigation.")
+	if(WaypointArray.Num() > 0 && NavPointArray.Num() == 0)
+	{
+		RequestPathAsync(GetActorLocation(), FormationLocation);
+	}
 	bShouldEvade = false;
 	return false;
 }

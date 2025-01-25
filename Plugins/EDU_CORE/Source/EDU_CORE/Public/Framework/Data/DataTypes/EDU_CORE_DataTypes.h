@@ -24,7 +24,7 @@
 // Used by the Field of Vision Boxtrace in the Sight Component
 #define TRACE_CHANNEL_FOVBOX		TraceTypeQuery2
 
-
+class AEDU_CORE_Waypoint;
 /*------------------------- Input: Modifier Keys ---------------------------------
   This Enums keeps track of the active mod key, or active combo of mod keys
   in the CameraPawn. This means that any class can review this enum to se what
@@ -117,7 +117,7 @@ enum class EEDU_CORE_Formations : uint8
 --------------------------------------------------------------------------------*/
 
 UENUM()
-enum class EEDU_CORE_CombatMode : uint8
+enum class EEDU_CORE_AlertnessLevel : uint8
 {
 	Indifferent,
 	Safe,
@@ -127,19 +127,20 @@ enum class EEDU_CORE_CombatMode : uint8
 };
 
 UENUM()
-enum class EEDU_CORE_Stance : uint8
+enum class EEDU_CORE_InfantryStance : uint8
 {
+	None,
 	Prone,
 	Crouched,
 	Stand,
 };
 
 UENUM()
-enum class EEDU_CORE_Speed : uint8
+enum class EEDU_CORE_MovementSpeed : uint8
 {
 	Slow,
 	Medium,
-	Fast,
+	Full,
 };
 
 UENUM()
@@ -147,11 +148,37 @@ enum class EEDU_CORE_ROE : uint8
 {
 	HoldFire,
 	SelfDefence,
-	FireAtTarget,
-	FireAtPosition,
+	FireAtTargetOnly,
 	FireAtWill,
-	EngageAtWill
 };
+
+UENUM()
+enum class EEngagementMode : uint8
+{
+	HoldPosition,
+	EngageTargetOnly,
+	EngageAtWill,
+	RoamAtWill,
+};
+
+UENUM()
+enum class ETargetPriority : uint8
+{
+	Nearest				UMETA(DisplayName = "Nearest"),
+	Farthest			UMETA(DisplayName = "Farthest"),
+
+	LowestHealth		UMETA(DisplayName = "Lowest Health"),
+	HighestHealth		UMETA(DisplayName = "Highest Health"),
+	
+	LowestDamage		UMETA(DisplayName = "Lowest Damage"),
+	HighestDamage		UMETA(DisplayName = "Highest Damage"),
+
+	LowestDefense		UMETA(DisplayName = "Lowest Defense"),
+	HighestDefense		UMETA(DisplayName = "Highest Defense"),
+	
+	Max					UMETA(Hidden)
+};
+
 
 /*--------------------------- WayPoint Settings ---------------------------------
   The Waypoint acts as a set of instructions for the entities listening to it.
@@ -162,42 +189,123 @@ enum class EEDU_CORE_WaypointType : uint8
 {
 	// Default
 	NavigateTo,
+	FollowTarget,
+	AttackTarget,
 	AttackPosition,
 	ObservePosition,
 };
 
+class AEDU_CORE_SelectableEntity;
 USTRUCT()
 struct FWaypointParams
 {	/*-------------------------------------------------------------------
 	  Instead of passing all these variables as parameters, we pass
-	  the entire struct. It keeps the cose a lot cleaner and readable.
+	  the entire struct. It keeps the code a lot cleaner and readable.
 	-------------------------------------------------------------------*/
 	GENERATED_BODY()
-
-	// World position for the waypoint
+	
+	// Pointer to this waypoint
 	UPROPERTY(EditAnywhere)
-	FVector WorldPosition = FVector::ZeroVector;
+	TObjectPtr<AEDU_CORE_Waypoint> WaypointPtr = nullptr;
+
+	// The waypoint's world position 
+	UPROPERTY(EditAnywhere)
+	FVector WaypointPosition = FVector::ZeroVector;
 
 	// Rotation for the waypoint, default to zero rotation
 	UPROPERTY(EditAnywhere)
 	FRotator WaypointRotation = FRotator::ZeroRotator;
 
-	// Type of waypoint, default to NavigateTo
-	UPROPERTY(EditAnywhere)
-	EEDU_CORE_WaypointType WaypointType = EEDU_CORE_WaypointType::NavigateTo;
+	// Entities that this waypoint targets;
+	UPROPERTY(VisibleAnywhere)
+	TArray<TObjectPtr<AEDU_CORE_SelectableEntity>> TargetArray;
+
+	// Map Location that this waypoint targets;
+	UPROPERTY(VisibleAnywhere)
+	FVector TargetPosition = FVector::ZeroVector;
 
 	// Should the waypoint be queued?
 	UPROPERTY(EditAnywhere)
-	bool Queue = false;
+	bool bQueue = false;
+
+	// Should this waypoint be recycled until removed manually?
+	UPROPERTY(EditAnywhere)
+	bool bPatrolPoint = false;
 
 	// Align waypoint to cursor?
 	UPROPERTY(EditAnywhere)
-	bool CursorAlignment = false;
+	bool bCursorAlignment = false;
+
+	//------------------------------------------------------------
+	// Waypoint Enum Settings
+	//------------------------------------------------------------
+	
+	UPROPERTY(EditAnywhere)
+	EEDU_CORE_WaypointType WaypointType = EEDU_CORE_WaypointType::NavigateTo;
+	
+	UPROPERTY(VisibleAnywhere)
+	EEDU_CORE_Team WaypointTeam = EEDU_CORE_Team::None;
+
+	UPROPERTY(VisibleAnywhere)
+	EEDU_CORE_Formations WaypointFormation = EEDU_CORE_Formations::NoFormation;
+	
+	//------------------------------------------------------------
+	// Unit Enum Settings
+	//------------------------------------------------------------
+
+	UPROPERTY(VisibleAnywhere)
+	EEDU_CORE_AlertnessLevel AlertnessLevel = EEDU_CORE_AlertnessLevel::Indifferent;
+
+	UPROPERTY(VisibleAnywhere)
+	EEDU_CORE_InfantryStance InfantryStance = EEDU_CORE_InfantryStance::None;
+
+	UPROPERTY(VisibleAnywhere)
+	EEDU_CORE_MovementSpeed MovementSpeed = EEDU_CORE_MovementSpeed::Full;
+
+	UPROPERTY(VisibleAnywhere)
+	EEDU_CORE_ROE ROE = EEDU_CORE_ROE::HoldFire;
+
+	UPROPERTY(VisibleAnywhere)
+	EEngagementMode EngagementMode = EEngagementMode::HoldPosition;
+	
+	//------------------------------------------------------------
+	// Formation info for Mobile Entities
+	//------------------------------------------------------------
+
+	// Used by MobileEnties to align with formation.
+	UPROPERTY()
+	FVector WaypointForwardVector = FVector::ZeroVector;
+
+	// Used by MobileEnties to offset their position in advanced formations.
+	UPROPERTY()
+	FVector WaypointRightVector = FVector::ZeroVector;
+	
 };
 
 /*--------------------------- Weapons & Damage -----------------------------------
   To deal and take damage.
 --------------------------------------------------------------------------------*/
+
+UENUM(BlueprintType)
+enum class EWeaponStatus : uint8
+{
+	// Can't be used, can be repaired
+		Disabled		UMETA(DisplayName = "Disabled"),
+	// Functions, but is faulty
+		Damaged			UMETA(DisplayName = "Damaged"),
+	// Can track, but can't fire
+		NoAmmo			UMETA(DisplayName = "Out of Ammo"),
+	// Has ammo, is functional and is aligned.
+		Ready			UMETA(DisplayName = "Ready"),
+	// Target is lost, searching for it.
+		Searching		UMETA(DisplayName = "Searching for target"),
+	// Is engaged with a suboptimal target
+		Supporting		UMETA(DisplayName = "Supporting"),
+	// Is engaged with an optimal targetm should not be interupted
+		Engaged			UMETA(DisplayName = "Engaged"),
+
+	Max        UMETA(Hidden)
+};
 
 // Enum for different damage types
 UENUM(BlueprintType) // Allow this enum to be used in Blueprints
@@ -259,8 +367,12 @@ struct FProjectileWeaponInformation
 	int32 WeaponArrayIndex = 0;
 
 	// Allows this weapon to fire simultaneously with others.
-	// UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "Characteristics")
-	// bool ParallelBarrel = true;
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "Characteristics")
+	bool ParallelBarrel = true;
+
+	// Allows this weapon to fire simultaneously with others.
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "Characteristics")
+	float RealoadSpeed = 5.f;
 	
 	// How much offset does this weapon have from the Owner's center?
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Characteristics")
@@ -299,9 +411,13 @@ struct FProjectileWeaponInformation
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Ammo")
 	int32 CurrentAmmo = 0.f;
 	
-	// The Primary Damage Type this weapon inflicts on Impact.
+	// The Type of Damage this weapon inflicts on Impact.
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Damage")
-	TMap<EDamageType, float> DamageTypeAndAmount;
+	EDamageType DamageType;
+
+	// The Amount of Damage this weapon inflicts on Impact.
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Damage")
+	float Damage;
 
 	// What percentage of energy is designed to penetrate armor?
 	// 90% would imply the weapon's energy penetrates solid objects with ease, similar to gamma rays.
@@ -309,7 +425,7 @@ struct FProjectileWeaponInformation
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Damage")
 	float Penetration = 0.f;
 	
-	// Area of Effect (splash) Radius of both damage types
+	// Area of Effect (splash) Radius
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Damage")
 	float AreaOfEffectRadius = 0.f;
 	

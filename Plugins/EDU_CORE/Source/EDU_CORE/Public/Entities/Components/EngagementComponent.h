@@ -30,57 +30,6 @@ class AEDU_CORE_SelectableEntity;
   Weapon/Turret Component separately.
 ------------------------------------------------------------------------------*/
 
-//  Struct to store target-related information, used to evaluate target priority.
-USTRUCT(BlueprintType)
-struct FTargetInformation
-{
-	GENERATED_BODY()
-
-	// Pointer To TargetEntity
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Target Information")
-	TObjectPtr<AEDU_CORE_SelectableEntity> TargetEntity;
-
-	// The health of the target
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Target Information")
-	float Health;
-
-	// The Armor value of the target
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Target Information")
-	float Armor;
-
-	// The distance from the actor to the target
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Target Information")
-	float Distance;
-
-	// The danger level of the target, where higher values indicate more dangerous targets
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Target Information")
-	float DangerLevel;
-	
-};
-
-UENUM()
-enum class ESimultainiusTurrets : uint8
-{
-	None			UMETA(DisplayName = "None"),
-	SingleTurret	UMETA(DisplayName = "Single Turret"),
-	MultiTurret		UMETA(DisplayName = "Multi Turret"),
-	Max				UMETA(Hidden)
-};
-
-UENUM()
-enum class ETargetPriority : uint8
-{
-	Nearest				UMETA(DisplayName = "Nearest"),
-	Farthest			UMETA(DisplayName = "Farthest"),
-
-	LowestHealth		UMETA(DisplayName = "Lowest Health"),
-	HighestHealth		UMETA(DisplayName = "Highest Health"),
-	
-	LowestDamage		UMETA(DisplayName = "Lowest Damage"),
-	HighestDamage		UMETA(DisplayName = "Highest Damage"),
-	
-	Max					UMETA(Hidden)
-};
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class EDU_CORE_API UEngagementComponent : public UActorComponent
 {
@@ -90,21 +39,22 @@ class EDU_CORE_API UEngagementComponent : public UActorComponent
 // Get/Set
 //------------------------------------------------------------------------------
 public:
-	// Checks if the Entity has any fixed weapons that require the entity to align with the target.
-	FORCEINLINE bool HasFixedWeapon() const { return bHasFixedWeapons; };
-	
 	// Add a turret to TurretArray
 	void AddToTurretArray(UTurretWeaponComponent* TurretComponent);
 
 	// Add a Fixed Weapons to TurretArray
 	void AddToFixedWeaponsArray(UFixedWeaponComponent* FixedWeapon);
 
-	//------------------------------------------------------------------------------
+	FORCEINLINE float		GetMaxDamage()		const { return MaxDamage; }
+	FORCEINLINE EDamageType GetMaxDamageType()	const { return MaxDamageType; }
+	
+//------------------------------------------------------------------------------
 // Construction & Init
 //------------------------------------------------------------------------------
 public:
 	// Sets default values for this component's properties
-	UEngagementComponent();
+	UEngagementComponent(const FObjectInitializer& ObjectInitializer);
+	
 	virtual void OnRegister() override;
 
 protected:
@@ -125,32 +75,32 @@ public:
 protected:
 	
 	UPROPERTY(EditAnywhere)
-	bool bDrawSightDebugShape = false;
+	bool bDrawSearchForTargetsDebugShape = false;
 		
 	// What object tyoe are we searching for?
 	UPROPERTY(EditAnywhere)
 	TEnumAsByte<ECollisionChannel> TargetObjectType = ECC_Pawn ;
 
-	// Do we have Fixed weapons that need the Entity to align with target?
-	UPROPERTY(EditAnywhere)
-	bool bHasFixedWeapons = false;
-	
 //------------------------------------------------------------------------------
 // Components
 //------------------------------------------------------------------------------
 protected:
 	
-	// Array of available Turrets
-	UPROPERTY(VisibleAnywhere, Category = "Engagement | Weapons")
+	// Array of available Turrets.
+	UPROPERTY(VisibleAnywhere, Category = "Engagement | Weapon Platforms")
 	TArray<TObjectPtr<UTurretWeaponComponent>> TurretArray;
 
-	// Array of Fixed Weapons Turrets
-	UPROPERTY(VisibleAnywhere, Category = "Engagement | Weapons")
+	// Array of Fixed Weapons Turrets.
+	UPROPERTY(VisibleAnywhere, Category = "Engagement | Weapon Platforms")
 	TArray<TObjectPtr<UFixedWeaponComponent>> FixedWeaponsArray;
-	
-	// Array of possible Targets
+
+	// Array of targets we can damage.
 	UPROPERTY(VisibleAnywhere, Category = "Engagement | Targets")
-	TArray<FOverlapResult> TargetArray;
+	TArray<TObjectPtr<AEDU_CORE_SelectableEntity>> ViableTargetsArray;
+
+	// Array of targets we can damage, that can also hurt us.
+	UPROPERTY(VisibleAnywhere, Category = "Engagement | Targets")
+	TArray<TObjectPtr<AEDU_CORE_SelectableEntity>> PriorityTargetArray;
 	
 	// Pointer to GameMode for easy access to Team Arrays
 	UPROPERTY()
@@ -159,15 +109,24 @@ protected:
 	// Pointer to StatusComponent
 	UPROPERTY()
 	TObjectPtr<UStatusComponent> StatusComponent;
+	
+	/*--------------------- Combat Effectiveness -------------------------
+	  There is no use engaging the neemy if this entity doesn't have any
+	  weapons that can hurt the enemy.
+	--------------------------------------------------------------------*/
+	
+	UPROPERTY(VisibleAnywhere, Category = "Engagement | Targets")
+	bool bCombatEffective = true;
 
-	// How many weapon systems are we managing?
-	UPROPERTY()
-	ESimultainiusTurrets SimultainiusTurrets = ESimultainiusTurrets::None;
+	// Cache the team we're on
+	UPROPERTY(VisibleAnywhere, Category = "Engagement | Targets")
+	EEDU_CORE_Team OurTeam = EEDU_CORE_Team::None;
 
-	UPROPERTY()
+	// Target Sorting Priority
+	UPROPERTY(VisibleAnywhere, Category = "Engagement | Targets")
 	ETargetPriority TargetPriority = ETargetPriority::Nearest;
 
-	/*----------------------Max Weapon Damage Info -----------------------
+	/*--------------------- Max Weapon Damage Info -----------------------
 	  This is used by Tactical agents to make decisions.
 
 	  Damage is the most important stat, because if a weapon can't
@@ -191,9 +150,8 @@ protected:
 	float MaxDamageRange = 0.f;
 	
 	// The highest single damage this entity can output.
-	// -666 = Error
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapons")
-	float MaxDamage = -666.f;
+	float MaxDamage = 0.f;
 	
 	// Mount of the most damaging weapon available.
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapons")
@@ -205,7 +163,7 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapons")
 	float MaxRange = 0.f;
-
+	
 //------------------------------------------------------------------------------
 // Functionality
 //------------------------------------------------------------------------------
@@ -214,9 +172,11 @@ protected:
 	// Ensure that we have a statusComponent active. This component will not function properly without it.
 	void EnsureStatusComponent();
 
+	// This works with both Turrets and Fixed Weapons
+	template <typename WeaponComponentType>
+	int8 EvaluateTargetsInRange(TObjectPtr<WeaponComponentType>& WeaponMount, const TArray<FOverlapResult>& TargetsInRangeArray);
+	
 	// Searches the proximity for Viable Targets based on our furthest range.
-	void SearchForTargets();
-
-	TObjectPtr<AEDU_CORE_SelectableEntity> GetPriorityTarget(EDamageType DamageType, float Damage, float Range, ETargetPriority Priority = ETargetPriority::Nearest);
+	void SearchForTargets(float SearchRange);
 	
 };
